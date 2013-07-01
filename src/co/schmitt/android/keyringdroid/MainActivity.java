@@ -64,8 +64,8 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId()  == R.id.menu_refresh) {
-                sync();
+        if (item.getItemId() == R.id.menu_refresh) {
+            sync();
         }
         return super.onOptionsItemSelected(item);    //To change body of overridden methods use File | Settings | File Templates.
     }
@@ -137,7 +137,7 @@ public class MainActivity extends Activity {
 
     private List<File> getKeyringFiles() throws IOException {
         Log.i("krg", keyringsFolderId);
-        if (keyringsFolderId == null)            {
+        if (keyringsFolderId == null) {
             return null;
         }
         Drive.Files.List request =
@@ -148,6 +148,7 @@ public class MainActivity extends Activity {
         if (files.getItems().size() > 0) {
             for (File file : files.getItems()) {
                 if (file.getTitle().endsWith(".keyring")) {
+                    Log.i("krg", file.getMd5Checksum());
                     // Download file to internal storage
                     Log.i("krg", file.getDownloadUrl());
                     HttpResponse resp =
@@ -158,7 +159,7 @@ public class MainActivity extends Activity {
                     Log.i("krg", "Content: " + downloadedFile);
                     byte buffer[] = new byte[1024];
                     int length;
-                    while ((length=downloadedFile.read(buffer))>0) {
+                    while ((length = downloadedFile.read(buffer)) > 0) {
                         outputStream.write(buffer, 0, length);
                     }
                     downloadedFile.close();
