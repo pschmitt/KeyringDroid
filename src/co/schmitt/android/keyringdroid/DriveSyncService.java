@@ -1,10 +1,11 @@
 // Copyright 2012 Google Inc. All Rights Reserved.
 
-package co.schmitt.android.keyringdroid.drive;
+package co.schmitt.android.keyringdroid;
 
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import co.schmitt.android.keyringdroid.DriveSyncAdapter;
 
 /**
  * Created with IntelliJ IDEA.

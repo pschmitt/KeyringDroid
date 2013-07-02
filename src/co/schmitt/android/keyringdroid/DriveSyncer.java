@@ -1,4 +1,4 @@
-package co.schmitt.android.keyringdroid.drive;
+package co.schmitt.android.keyringdroid;
 
 import android.accounts.Account;
 import android.app.Notification;
@@ -7,6 +7,8 @@ import android.app.PendingIntent;
 import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.api.client.extensions.android.http.AndroidHttp;
@@ -54,6 +56,18 @@ public class DriveSyncer {
     }
 
     /**
+     * Check if this is the fist time this app was started.
+     * @return whether this is this app's first lauch
+     */
+    private boolean isFirstLauch() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
+        boolean firstLaunch = prefs.contains("firstLaunch");
+        if (firstLaunch)
+            prefs.edit().putBoolean("fistLaunch", false);
+        return firstLaunch;
+    }
+
+    /**
      * Retrieve a authorized service object to send requests to the Google Drive
      * API. On failure to retrieve an access token, a notification is sent to the
      * user requesting that authorization be granted for the
@@ -68,7 +82,7 @@ public class DriveSyncer {
                         GoogleAccountCredential.usingOAuth2(mContext, DriveScopes.DRIVE_FILE);
                 credential.setSelectedAccountName(mAccount.name);
                 // Trying to get a token right away to see if we are authorized
-                credential.getToken();
+                //credential.getToken();
                 mService = new Drive.Builder(AndroidHttp.newCompatibleTransport(),
                         new GsonFactory(), credential).build();
             } catch (Exception e) {
@@ -103,7 +117,13 @@ public class DriveSyncer {
      * Perform a synchronization for the current account.
      */
     public void performSync() {
+        if (mService == null) {
+            return;
+        }
+        Log.d(TAG, "Performing sync for " + mAccount.name);
+        if (isFirstLauch()) {
 
+        }
     }
 
     /**
@@ -131,7 +151,7 @@ public class DriveSyncer {
     }
 
     public String getFileContent(File driveFile) {
-          return null;
+        return null;
     }
 
     /**

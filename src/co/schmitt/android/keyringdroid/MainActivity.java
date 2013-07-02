@@ -1,7 +1,9 @@
 package co.schmitt.android.keyringdroid;
 
+import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Activity;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -16,6 +18,7 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 import com.google.api.client.extensions.android.http.AndroidHttp;
+import com.google.api.client.googleapis.extensions.android.accounts.GoogleAccountManager;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
 import com.google.api.client.http.GenericUrl;
@@ -31,7 +34,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
     static final int REQUEST_ACCOUNT_PICKER = 1;
@@ -65,7 +71,8 @@ public class MainActivity extends Activity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.menu_refresh) {
-            sync();
+//            sync();
+            requestSync();
         }
         return super.onOptionsItemSelected(item);    //To change body of overridden methods use File | Settings | File Templates.
     }
@@ -85,14 +92,14 @@ public class MainActivity extends Activity {
                 break;
             case REQUEST_AUTHORIZATION:
                 if (resultCode == Activity.RESULT_OK) {
-                    sync();
+//                    sync();
                 } else {
                     startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
                 }
                 break;
             case CAPTURE_IMAGE:
                 if (resultCode == Activity.RESULT_OK) {
-                    sync();
+//                    sync();
                 }
         }
     }
@@ -172,6 +179,21 @@ public class MainActivity extends Activity {
         return keyrings;
     }
 
+    private void requestSync() {
+        String accountName = credential.getSelectedAccountName();
+        if (accountName != null && accountName.length() > 0) {
+            final GoogleAccountManager accountManager = new GoogleAccountManager(this);
+            Account account = accountManager.getAccountByName(accountName);
+
+            if (account != null) {
+                Bundle options = new Bundle();
+                options.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+//                ContentResolver.setIsSyncable(account, "co.schmitt.android.provider.KeyringDroid", 1);
+                ContentResolver.requestSync(account, "co.schmitt.android.provider.KeyringDroid", options);
+            }
+        }
+    }
+
     private void sync() {
         Thread t = new Thread(new Runnable() {
             @Override
@@ -214,15 +236,12 @@ public class MainActivity extends Activity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-//                for (File kr : files) {
-//                    showToast(kr.getTitle());
-//                }
                 final ListView listview = (ListView) findViewById(R.id.keyringListView);
                 final ArrayList<String> list = new ArrayList<String>();
                 for (File kr : keyringFiles) {
                     list.add(kr.getTitle());
                 }
-                ArrayAdapter arrayAdapter = new ArrayAdapter(getApplicationContext(), R.layout.simplerow, list);
+                ArrayAdapter arrayAdapter = new ArrayAdapter(getApplicationContext(), android.R.layout.simple_list_item_1, list);
                 listview.setAdapter(arrayAdapter);
             }
         });

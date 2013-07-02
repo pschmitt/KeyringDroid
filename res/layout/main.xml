@@ -2,12 +2,13 @@
 
 <GridLayout
         android:layout_width="fill_parent"
-        android:layout_height="fill_parent" xmlns:android="http://schemas.android.com/apk/res/android">
+        android:layout_height="fill_parent" xmlns:android="http://schemas.android.com/apk/res/android"
+        android:columnCount="1">
     <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Your keyrings"
-            android:id="@+id/textView" android:layout_row="0" android:layout_column="1"/>
+            android:id="@+id/textView" android:layout_row="0"/>
     <ListView
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"

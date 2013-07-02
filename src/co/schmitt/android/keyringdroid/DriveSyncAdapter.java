@@ -1,6 +1,6 @@
 // Copyright 2012 Google Inc. All Rights Reserved.
 
-package co.schmitt.android.keyringdroid.drive;
+package co.schmitt.android.keyringdroid;
 
 import android.accounts.Account;
 import android.content.AbstractThreadedSyncAdapter;
