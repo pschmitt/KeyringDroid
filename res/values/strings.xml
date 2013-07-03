@@ -2,8 +2,9 @@
 <resources>
     <string name="app_name">KeyringDroid</string>
     <string name="menu_refresh">Refresh</string>
+    <string name="menu_add">Add</string>
     <string name="main_title">New Text</string>
-    <string name="keyring_folder">keyrings</string>
+    <string name="keyring_folder">keyrings_test</string>
     <string-array name="planets_array">
         <item>Mercury</item>
         <item>Venus</item>
@@ -16,4 +17,6 @@
     </string-array>
     <string name="drawer_open">Open navigation drawer</string>
     <string name="drawer_close">Close navigation drawer</string>
+    <string name="prefs_first_launch">first_launch</string>
+    <string name="prefs_account_name">account_name</string>
 </resources>
