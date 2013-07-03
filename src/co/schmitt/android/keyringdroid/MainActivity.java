@@ -3,24 +3,21 @@ package co.schmitt.android.keyringdroid;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Activity;
-import android.content.ContentResolver;
+import android.app.Fragment;
+import android.app.FragmentManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.support.v4.widget.DrawerLayout;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
-import android.widget.Toast;
+import android.view.*;
+import android.widget.*;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.accounts.GoogleAccountManager;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
-import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpResponse;
 import com.google.api.client.json.gson.GsonFactory;
@@ -49,6 +46,13 @@ public class MainActivity extends Activity {
     private String keyringsFolderId;
     private GoogleAccountCredential credential;
     private List<File> keyringFiles;
+    private String[] mPlanetTitles;
+    // UI Elements
+    private DrawerLayout mDrawerLayout;
+
+
+    private ListView mDrawerList;
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -57,6 +61,16 @@ public class MainActivity extends Activity {
         credential = GoogleAccountCredential.usingOAuth2(this, DriveScopes.DRIVE);
         credential.setSelectedAccountName("philipp@schmitt.co");
         service = getDriveService(credential);
+
+        // Drawer initialization
+        mPlanetTitles = getResources().getStringArray(R.array.planets_array);
+        mDrawerList = (ListView) findViewById(R.id.left_drawer);
+        // Set the adapter for the list view
+        mDrawerList.setAdapter(new ArrayAdapter<String>(this,
+                R.layout.drawer_list_item, mPlanetTitles)
+        );
+        // Set the list's click listener
+        mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
 //        startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
         // startCameraIntent();
     }
@@ -103,6 +117,31 @@ public class MainActivity extends Activity {
                 }
         }
     }
+
+    /* The click listner for ListView in the navigation drawer */
+    private class DrawerItemClickListener implements ListView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            selectItem(position);
+        }
+    }
+
+    private void selectItem(int position) {
+        // update the main content by replacing fragments
+        Fragment fragment = new PlanetFragment();
+        Bundle args = new Bundle();
+        args.putInt(PlanetFragment.ARG_PLANET_NUMBER, position);
+        fragment.setArguments(args);
+
+        FragmentManager fragmentManager = getFragmentManager();
+        fragmentManager.beginTransaction().replace(R.id.content_frame, fragment).commit();
+
+        // update selected item and title, then close the drawer
+        mDrawerList.setItemChecked(position, true);
+        setTitle(mPlanetTitles[position]);
+        mDrawerLayout.closeDrawer(mDrawerList);
+    }
+
 
     private void startCameraIntent() {
         String mediaStorageDir = Environment.getExternalStoragePublicDirectory(
@@ -180,21 +219,24 @@ public class MainActivity extends Activity {
     }
 
     private void requestSync() {
-        String accountName = credential.getSelectedAccountName();
-        if (accountName != null && accountName.length() > 0) {
-            final GoogleAccountManager accountManager = new GoogleAccountManager(this);
-            Account account = accountManager.getAccountByName(accountName);
-
-            if (account != null) {
-                Bundle options = new Bundle();
-                options.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
-//                ContentResolver.setIsSyncable(account, "co.schmitt.android.provider.KeyringDroid", 1);
-                ContentResolver.requestSync(account, "co.schmitt.android.provider.KeyringDroid", options);
-            }
-        }
+        final GoogleAccountManager accountManager = new GoogleAccountManager(this);
+        Account account = accountManager.getAccountByName("philipp@schmitt.co");
+        DriveSyncer syncer = new DriveSyncer(this, account); //(this, new KeyringProvider(), account);
+        syncer.performSync();
+//        String accountName = credential.getSelectedAccountName();
+//        if (accountName != null && accountName.length() > 0) {
+//            final GoogleAccountManager accountManager = new GoogleAccountManager(this);
+//            Account account = accountManager.getAccountByName(accountName);
+//
+//            if (account != null) {
+//                Bundle options = new Bundle();
+//                options.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+//                ContentResolver.requestSync(account, "co.schmitt.android.provider.KeyringDroid", options);
+//            }
+//        }
     }
 
-    private void sync() {
+/*    private void sync() {
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -204,7 +246,7 @@ public class MainActivity extends Activity {
                     Log.i("krg", "FILES LIST UPDATED: " + keyringFiles.size());
                     updateList();
                     // File's binary content
-                    /*java.io.File fileContent = new java.io.File(fileUri.getPath());
+                    *//*java.io.File fileContent = new java.io.File(fileUri.getPath());
                     FileContent mediaContent = new FileContent("image/jpeg", fileContent);
 
                     // File's metadata.
@@ -216,7 +258,7 @@ public class MainActivity extends Activity {
                     if (file != null) {
                         showToast("Photo uploaded: " + file.getTitle());
                         startCameraIntent();
-                    }*/
+                    }*//*
                 } catch (UserRecoverableAuthIOException e) {
                     startActivityForResult(e.getIntent(), REQUEST_AUTHORIZATION);
                 } catch (IOException e) {
@@ -225,7 +267,7 @@ public class MainActivity extends Activity {
             }
         });
         t.start();
-    }
+    }*/
 
     private Drive getDriveService(GoogleAccountCredential credential) {
         return new Drive.Builder(AndroidHttp.newCompatibleTransport(), new GsonFactory(), credential)
@@ -236,13 +278,13 @@ public class MainActivity extends Activity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                final ListView listview = (ListView) findViewById(R.id.keyringListView);
+               /* final ListView listview= (ListView) findViewById(R.id.keyringListView);
                 final ArrayList<String> list = new ArrayList<String>();
                 for (File kr : keyringFiles) {
                     list.add(kr.getTitle());
                 }
                 ArrayAdapter arrayAdapter = new ArrayAdapter(getApplicationContext(), android.R.layout.simple_list_item_1, list);
-                listview.setAdapter(arrayAdapter);
+                listview.setAdapter(arrayAdapter);*/
             }
         });
     }
@@ -254,5 +296,30 @@ public class MainActivity extends Activity {
                 Toast.makeText(getApplicationContext(), toast, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    /**
+     * Fragment that appears in the "content_frame", shows a planet
+     */
+    public static class PlanetFragment extends Fragment {
+        public static final String ARG_PLANET_NUMBER = "planet_number";
+
+        public PlanetFragment() {
+            // Empty constructor required for fragment subclasses
+        }
+
+        @Override
+        public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                                 Bundle savedInstanceState) {
+            View rootView = inflater.inflate(R.layout.fragment_planet, container, false);
+            int i = getArguments().getInt(ARG_PLANET_NUMBER);
+            String planet = getResources().getStringArray(R.array.planets_array)[i];
+
+            int imageId = getResources().getIdentifier(planet.toLowerCase(Locale.getDefault()),
+                    "drawable", getActivity().getPackageName());
+            ((ImageView) rootView.findViewById(R.id.image)).setImageResource(imageId);
+            getActivity().setTitle(planet);
+            return rootView;
+        }
     }
 }

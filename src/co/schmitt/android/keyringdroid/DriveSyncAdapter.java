@@ -32,7 +32,7 @@ public class DriveSyncAdapter extends AbstractThreadedSyncAdapter {
     @Override
     public void onPerformSync(Account account, Bundle bundle, String authority,
                               ContentProviderClient provider, SyncResult syncResult) {
-        DriveSyncer syncer = new DriveSyncer(mContext, provider, account);
+        DriveSyncer syncer = new DriveSyncer(mContext /*, provider*/, account);
         syncer.performSync();
     }
 }

@@ -3,4 +3,15 @@
     <string name="app_name">KeyringDroid</string>
     <string name="menu_refresh">Refresh</string>
     <string name="main_title">New Text</string>
+    <string name="keyring_folder">keyrings</string>
+    <string-array name="planets_array">
+        <item>Mercury</item>
+        <item>Venus</item>
+        <item>Earth</item>
+        <item>Mars</item>
+        <item>Jupiter</item>
+        <item>Saturn</item>
+        <item>Uranus</item>
+        <item>Neptune</item>
+    </string-array>
 </resources>
