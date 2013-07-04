@@ -13,7 +13,6 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.widget.DrawerLayout;
-import android.util.Log;
 import android.view.*;
 import android.widget.*;
 import com.google.api.client.extensions.android.http.AndroidHttp;
@@ -24,7 +23,6 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
@@ -83,18 +81,19 @@ public class MainActivity extends Activity {
         // Populate account spinner
         AccountManager accMgr = AccountManager.get(this);
         Account[] accountList = accMgr.getAccountsByType("com.google");
-        List<String> accountNames = new ArrayList<String>();
-
-        for (Account account : accountList) {
-            Log.v(TAG, "TYPE: " + account.type);
-            accountNames.add(account.name);
-        }
         AccountAdapter accountAdapter = new AccountAdapter(this, R.layout.account_spinner_item, R.id.account_name, R.id.account_picture, accountList);
-
-        ArrayAdapter<String> adp = new ArrayAdapter<String>(this, R.layout.account_spinner_item, R.id.account_name, accountNames);
-//        mAccountSpinner.setAdapter(adp);
         mAccountSpinner.setAdapter(accountAdapter);
+        mAccountSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                setSelectedAccountName(((Account) parent.getItemAtPosition(position)).name);
+                showToast(((Account) parent.getItemAtPosition(position)).name);
+            }
 
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
         mDrawerList = (ListView) findViewById(R.id.left_drawer);
         // Set the adapter for the list view
         mDrawerList.setAdapter(new ArrayAdapter<String>(this,
@@ -283,7 +282,7 @@ public class MainActivity extends Activity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_planet, container, false);
+            View rootView = inflater.inflate(R.layout.fragment_settings, container, false);
             int i = getArguments().getInt(ARG_PLANET_NUMBER);
             String planet = getResources().getStringArray(R.array.planets_array)[i];
 
