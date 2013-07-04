@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.widget.DrawerLayout;
+import android.util.Log;
 import android.view.*;
 import android.widget.*;
 import com.google.api.client.extensions.android.http.AndroidHttp;
@@ -23,9 +24,14 @@ import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
+
+    // For logging and debugging
+    private static final String TAG = "MainActivity";
+
     static final int REQUEST_ACCOUNT_PICKER = 1;
     static final int REQUEST_AUTHORIZATION = 2;
     private static Drive service;
@@ -34,8 +40,7 @@ public class MainActivity extends Activity {
     // UI Elements
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
-
-
+    private Spinner mAccountSpinner;
     private ListView mDrawerList;
 
 
@@ -55,6 +60,7 @@ public class MainActivity extends Activity {
         service = getDriveService(credential);
 
         // Drawer initialization
+        mAccountSpinner = (Spinner) findViewById(R.id.account_spinner);
         mPlanetTitles = getResources().getStringArray(R.array.planets_array);
         mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         mDrawerToggle = new ActionBarDrawerToggle(
@@ -74,6 +80,21 @@ public class MainActivity extends Activity {
                 getActionBar().setTitle("Drawer open");
             }
         };
+        // Populate account spinner
+        AccountManager accMgr = AccountManager.get(this);
+        Account[] accountList = accMgr.getAccountsByType("com.google");
+        List<String> accountNames = new ArrayList<String>();
+
+        for (Account account : accountList) {
+            Log.v(TAG, "TYPE: " + account.type);
+            accountNames.add(account.name);
+        }
+        AccountAdapter accountAdapter = new AccountAdapter(this, R.layout.account_spinner_item, R.id.account_name, R.id.account_picture, accountList);
+
+        ArrayAdapter<String> adp = new ArrayAdapter<String>(this, R.layout.account_spinner_item, R.id.account_name, accountNames);
+//        mAccountSpinner.setAdapter(adp);
+        mAccountSpinner.setAdapter(accountAdapter);
+
         mDrawerList = (ListView) findViewById(R.id.left_drawer);
         // Set the adapter for the list view
         mDrawerList.setAdapter(new ArrayAdapter<String>(this,

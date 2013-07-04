@@ -102,6 +102,7 @@ public class DriveSyncer {
                 Log.e(TAG, "Failed to get token");
                 // If the Exception is User Recoverable, we display a notification that will trigger the
                 // intent to fix the issue.
+                // TODO catch UserRecoverableAuthException directly and do not show this buggy notification
                 if (e instanceof UserRecoverableAuthException) {
                     UserRecoverableAuthException exception = (UserRecoverableAuthException) e;
                     NotificationManager notificationManager = (NotificationManager) mContext
@@ -138,8 +139,6 @@ public class DriveSyncer {
             performFullSync();
         } else {
             Log.d(TAG, "Performing selective sync for " + mAccount.name);
-            // TODO uncomment following line
-//            insertNewLocalFiles();
             // TODO remove following debug line
             performFullSync();
         }
