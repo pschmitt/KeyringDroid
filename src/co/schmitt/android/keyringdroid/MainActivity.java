@@ -38,7 +38,6 @@ public class MainActivity extends Activity {
     private static final int REQUEST_ACCOUNT_PICKER = 2;
     private static final int REQUEST_AUTHORIZATION = 3;
 
-    private static Drive service;
     private GoogleAccountCredential credential;
     private String[] mPlanetTitles;
     // UI Elements
@@ -93,7 +92,6 @@ public class MainActivity extends Activity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 setSelectedAccountName(((Account) parent.getItemAtPosition(position)).name);
-                showToast(((Account) parent.getItemAtPosition(position)).name);
             }
 
             @Override
@@ -120,7 +118,6 @@ public class MainActivity extends Activity {
         String accountName = getSelectedAccountName();
         if (accountName != null) {
             credential.setSelectedAccountName(accountName);
-            service = getDriveService(credential);
         } else {
             startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
         }
@@ -151,11 +148,9 @@ public class MainActivity extends Activity {
         String accountNameKey = getString(R.string.prefs_account_name);
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         prefs.edit().putString(accountNameKey, accountName).commit();
-        service = getDriveService(credential);
         // TODO use this following line ?
 //        GoogleAuthUtil.getToken(getApplicationContext(), accountName, "oauth2:" + DriveScopes.DRIVE_FILE);
     }
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -198,7 +193,6 @@ public class MainActivity extends Activity {
                     String accountName = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
                     if (accountName != null) {
                         credential.setSelectedAccountName(accountName);
-                        service = getDriveService(credential);
                         // Store account name in shared preferences
                         setSelectedAccountName(accountName);
                         showToast("Selected account: " + credential.getSelectedAccountName());

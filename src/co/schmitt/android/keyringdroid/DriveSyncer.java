@@ -68,6 +68,7 @@ public class DriveSyncer {
     private Drive mService;
     private String mKeyringsFolderId;
     private long mLargestChangeId;
+    private String mToken;
 
     private String getKeyringsFolderId() {
         String folderIdKey = mContext.getString(R.string.prefs_keyrings_folder_id) + mAccount.name;
@@ -96,7 +97,6 @@ public class DriveSyncer {
         mService = getDriveService();
         mKeyringsFolderId = getKeyringsFolderId();
         mLargestChangeId = getLargestChangeId();
-        getAccessToken();
     }
 
     /**
@@ -150,11 +150,9 @@ public class DriveSyncer {
             ArrayList<String> scopes = new ArrayList<String>();
             scopes.add(DriveScopes.DRIVE);
             GoogleAccountCredential credential = GoogleAccountCredential.usingOAuth2(mContext, scopes);
-//                GoogleAccountCredential credential =
-//                        GoogleAccountCredential.usingOAuth2(mContext, DriveScopes.DRIVE_FILE);
             credential.setSelectedAccountName(mAccount.name);
             // Trying to get a token right away to see if we are authorized
-            getAccessToken();
+            mToken = getAccessToken();
             mService = new Drive.Builder(AndroidHttp.newCompatibleTransport(), new GsonFactory(), credential).build();
         }
         return mService;
@@ -168,16 +166,17 @@ public class DriveSyncer {
     private String getAccessToken() {
         try {
             return GoogleAuthUtil.getToken(mContext, mAccount.name, OAUTH_SCOPE_PREFIX
-                    + DriveScopes.DRIVE_FILE);
+                    + DriveScopes.DRIVE);
         } catch (UserRecoverableAuthException e) {
             Intent authRequiredIntent = new Intent(MainActivity.LB_AUTH_APP);
             authRequiredIntent.putExtra(MainActivity.EXTRA_AUTH_APP_INTENT, e.getIntent());
             LocalBroadcastManager.getInstance(mContext).sendBroadcast(
                     authRequiredIntent);
-        } catch (IOException e) {
-            // FIXME do exponential backoff
         } catch (GoogleAuthException e) {
             Log.e(getClass().getSimpleName(), "Fatal authorization exception", e);
+        } catch (IOException e) {
+            // FIXME do exponential backoff
+            e.printStackTrace();
         }
         return null;
     }
@@ -201,10 +200,8 @@ public class DriveSyncer {
                 Cursor cursor =
                         mProvider.query(uri, PROJECTION, Keyring.Keyrings.COLUMN_NAME_FILE_ID + " IS NOT NULL",
                                 null, null);
-
                 Log.d(TAG, "Got local files: " + cursor.getCount());
                 for (boolean more = cursor.moveToFirst(); more; more = cursor.moveToNext()) {
-
                     // Merge.
                     String fileId = cursor.getString(COLUMN_INDEX_FILE_ID);
                     Uri localFileUri = getFileUri(mAccount.name, fileId);
@@ -495,7 +492,7 @@ public class DriveSyncer {
 
     private File uploadFileToDrive(java.io.File localFile) throws IOException {
         Log.i(TAG, "Uploading " + localFile.getName());
-// File's metadata.
+        // File's metadata.
         File body = new File();
         body.setTitle(localFile.getName() + "_ADDED BY KEYRINGDROID");
 //        body.setDescription(description);
