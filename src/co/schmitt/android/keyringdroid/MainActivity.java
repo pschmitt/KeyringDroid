@@ -5,13 +5,12 @@ import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.Fragment;
 import android.app.FragmentManager;
-import android.content.ContentResolver;
-import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.*;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.app.ActionBarDrawerToggle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.widget.DrawerLayout;
 import android.view.*;
 import android.widget.*;
@@ -30,8 +29,15 @@ public class MainActivity extends Activity {
     // For logging and debugging
     private static final String TAG = "MainActivity";
 
-    static final int REQUEST_ACCOUNT_PICKER = 1;
-    static final int REQUEST_AUTHORIZATION = 2;
+    // Keys for local broadcasts
+    public static final String LB_REQUEST_ACCOUNT = "REQUEST_ACCOUNT";
+    public static final String LB_AUTH_APP = "AUTH_APP";
+    public static final String EXTRA_AUTH_APP_INTENT = "AUTH_APP_INTENT";
+
+    private static final int AUTH_APP = 1;
+    private static final int REQUEST_ACCOUNT_PICKER = 2;
+    private static final int REQUEST_AUTHORIZATION = 3;
+
     private static Drive service;
     private GoogleAccountCredential credential;
     private String[] mPlanetTitles;
@@ -41,21 +47,21 @@ public class MainActivity extends Activity {
     private Spinner mAccountSpinner;
     private ListView mDrawerList;
 
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (LB_AUTH_APP.equals(action)) {
+                Intent authAppIntent = intent.getParcelableExtra(EXTRA_AUTH_APP_INTENT);
+                startActivityForResult(authAppIntent, AUTH_APP);
+            }
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        ArrayList<String> scopes = new ArrayList<String>();
-        scopes.add(DriveScopes.DRIVE);
-        credential = GoogleAccountCredential.usingOAuth2(this, scopes);
-        String accountName = getSelectedAccountName();
-        if (accountName != null)
-            credential.setSelectedAccountName(accountName);
-        else
-            startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
-        showToast("Selected account: " + credential.getSelectedAccountName());
-        service = getDriveService(credential);
 
         // Drawer initialization
         mAccountSpinner = (Spinner) findViewById(R.id.account_spinner);
@@ -107,6 +113,32 @@ public class MainActivity extends Activity {
 
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setHomeButtonEnabled(true);
+
+        ArrayList<String> scopes = new ArrayList<String>();
+        scopes.add(DriveScopes.DRIVE);
+        credential = GoogleAccountCredential.usingOAuth2(this, scopes);
+        String accountName = getSelectedAccountName();
+        if (accountName != null) {
+            credential.setSelectedAccountName(accountName);
+            service = getDriveService(credential);
+        } else {
+            startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
+                new IntentFilter(LB_REQUEST_ACCOUNT));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
+                new IntentFilter(LB_AUTH_APP));
+    }
+
+    @Override
+    protected void onPause() {
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
+        super.onPause();
     }
 
     private String getSelectedAccountName() {
@@ -119,7 +151,11 @@ public class MainActivity extends Activity {
         String accountNameKey = getString(R.string.prefs_account_name);
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         prefs.edit().putString(accountNameKey, accountName).commit();
+        service = getDriveService(credential);
+        // TODO use this following line ?
+//        GoogleAuthUtil.getToken(getApplicationContext(), accountName, "oauth2:" + DriveScopes.DRIVE_FILE);
     }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -149,10 +185,9 @@ public class MainActivity extends Activity {
             return true;
         }
         if (item.getItemId() == R.id.menu_refresh) {
-//            sync();
             requestSync();
         }
-        return super.onOptionsItemSelected(item);    //To change body of overridden methods use File | Settings | File Templates.
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -166,6 +201,7 @@ public class MainActivity extends Activity {
                         service = getDriveService(credential);
                         // Store account name in shared preferences
                         setSelectedAccountName(accountName);
+                        showToast("Selected account: " + credential.getSelectedAccountName());
                     }
                 }
                 break;

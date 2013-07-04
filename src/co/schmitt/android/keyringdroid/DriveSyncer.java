@@ -1,15 +1,15 @@
 package co.schmitt.android.keyringdroid;
 
 import android.accounts.Account;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.*;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.RemoteException;
 import android.preference.PreferenceManager;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import com.google.android.gms.auth.GoogleAuthException;
+import com.google.android.gms.auth.GoogleAuthUtil;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
@@ -41,6 +41,8 @@ public class DriveSyncer {
      * For logging and debugging purposes
      */
     private static final String TAG = "DriveSyncAdapter";
+
+    private static final String OAUTH_SCOPE_PREFIX = "oauth2:";
 
     /**
      * Projection used for querying the database.
@@ -83,9 +85,9 @@ public class DriveSyncer {
     /**
      * Instantiate a new DriveSyncer.
      *
-     * @param context Context to use on credential requests.
-     *                // @param provider Provider to use for database requests.
-     * @param account Account to perform sync for.
+     * @param context  Context to use on credential requests.
+     * @param provider Provider to use for database requests.
+     * @param account  Account to perform sync for.
      */
     public DriveSyncer(Context context, ContentProviderClient provider, Account account) {
         mContext = context;
@@ -94,6 +96,7 @@ public class DriveSyncer {
         mService = getDriveService();
         mKeyringsFolderId = getKeyringsFolderId();
         mLargestChangeId = getLargestChangeId();
+        getAccessToken();
     }
 
     /**
@@ -144,44 +147,39 @@ public class DriveSyncer {
      */
     private Drive getDriveService() {
         if (mService == null) {
-            try {
-                ArrayList<String> scopes = new ArrayList<String>();
-                scopes.add(DriveScopes.DRIVE);
-                GoogleAccountCredential credential = GoogleAccountCredential.usingOAuth2(mContext, scopes);
+            ArrayList<String> scopes = new ArrayList<String>();
+            scopes.add(DriveScopes.DRIVE);
+            GoogleAccountCredential credential = GoogleAccountCredential.usingOAuth2(mContext, scopes);
 //                GoogleAccountCredential credential =
 //                        GoogleAccountCredential.usingOAuth2(mContext, DriveScopes.DRIVE_FILE);
-                credential.setSelectedAccountName(mAccount.name);
-                // Trying to get a token right away to see if we are authorized
-                //credential.getToken();
-                mService = new Drive.Builder(AndroidHttp.newCompatibleTransport(),
-                        new GsonFactory(), credential).build();
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to get token");
-                // If the Exception is User Recoverable, we display a notification that will trigger the
-                // intent to fix the issue.
-                // TODO catch UserRecoverableAuthException directly and do not show this buggy notification
-                if (e instanceof UserRecoverableAuthException) {
-                    UserRecoverableAuthException exception = (UserRecoverableAuthException) e;
-                    NotificationManager notificationManager = (NotificationManager) mContext
-                            .getSystemService(Context.NOTIFICATION_SERVICE);
-                    Intent authorizationIntent = exception.getIntent();
-                    authorizationIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).addFlags(
-                            Intent.FLAG_FROM_BACKGROUND);
-                    PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0,
-                            authorizationIntent, 0);
-                    Notification notification = new Notification.Builder(mContext)
-                            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                            .setTicker("Permission requested")
-                            .setContentTitle("Permission requested")
-                            .setContentText("for account " + mAccount.name)
-                            .setContentIntent(pendingIntent).setAutoCancel(true).build();
-                    notificationManager.notify(0, notification);
-                } else {
-                    e.printStackTrace();
-                }
-            }
+            credential.setSelectedAccountName(mAccount.name);
+            // Trying to get a token right away to see if we are authorized
+            getAccessToken();
+            mService = new Drive.Builder(AndroidHttp.newCompatibleTransport(), new GsonFactory(), credential).build();
         }
         return mService;
+    }
+
+    /**
+     * https://code.google.com/p/android-drive-sync/source/browse/Andriod/src/com/example/android/cloudnotes/service/DriveSyncService.java?r=132ae2b9502ba630182183bd16629f74127f6e93
+     *
+     * @return
+     */
+    private String getAccessToken() {
+        try {
+            return GoogleAuthUtil.getToken(mContext, mAccount.name, OAUTH_SCOPE_PREFIX
+                    + DriveScopes.DRIVE_FILE);
+        } catch (UserRecoverableAuthException e) {
+            Intent authRequiredIntent = new Intent(MainActivity.LB_AUTH_APP);
+            authRequiredIntent.putExtra(MainActivity.EXTRA_AUTH_APP_INTENT, e.getIntent());
+            LocalBroadcastManager.getInstance(mContext).sendBroadcast(
+                    authRequiredIntent);
+        } catch (IOException e) {
+            // FIXME do exponential backoff
+        } catch (GoogleAuthException e) {
+            Log.e(getClass().getSimpleName(), "Fatal authorization exception", e);
+        }
+        return null;
     }
 
     /**
