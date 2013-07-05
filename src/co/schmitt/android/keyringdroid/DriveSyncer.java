@@ -24,9 +24,6 @@ import com.google.api.services.drive.model.*;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 /**
@@ -70,19 +67,6 @@ public class DriveSyncer {
     private long mLargestChangeId;
     private String mToken;
 
-    private String getKeyringsFolderId() {
-        String folderIdKey = mContext.getString(R.string.prefs_keyrings_folder_id) + mAccount.name;
-        return PreferenceManager.getDefaultSharedPreferences(mContext).getString(folderIdKey, null);
-    }
-
-    private void setKeyringsFolderId(String keyringsFolderId) {
-        SharedPreferences.Editor editor =
-                PreferenceManager.getDefaultSharedPreferences(mContext).edit();
-        editor.putString(mContext.getString(R.string.prefs_keyrings_folder_id) + mAccount.name, keyringsFolderId);
-        editor.commit();
-        mKeyringsFolderId = keyringsFolderId;
-    }
-
     /**
      * Instantiate a new DriveSyncer.
      *
@@ -100,17 +84,35 @@ public class DriveSyncer {
     }
 
     /**
-     * Check if this is the fist time this app was started.
+     * Retrieve the URI of Keyrings for a given account
      *
-     * @return whether this is this app's first lauch
+     * @param accountName The owner's account name
+     * @return The URI of Keyrings
      */
-    private boolean isFirstLauch() {
-        String firstLaunchKey = mContext.getString(R.string.prefs_first_launch);
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mContext);
-        boolean firstLaunch = prefs.contains(firstLaunchKey);
-        if (firstLaunch)
-            prefs.edit().putBoolean(firstLaunchKey, false).commit();
-        return firstLaunch;
+    private static Uri getKeyringsUri(String accountName) {
+        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/");
+    }
+
+    /**
+     * Retrieve the URI of Keyring for a given account
+     *
+     * @param accountName The owner's account name
+     * @param keyringId  The ID of the keyring item
+     * @return The URI of the Keyring
+     */
+    private static Uri getKeyringUri(String accountName, String keyringId) {
+        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/" + keyringId);
+    }
+
+    /**
+     * Retrieve the URI of a (local ?) file
+     *
+     * @param accountName The owner's account name
+     * @param fileId      The ID of the file
+     * @return The URI of the file
+     */
+    private static Uri getFileUri(String accountName, String fileId) {
+        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/" + fileId);
     }
 
     /**
@@ -138,6 +140,29 @@ public class DriveSyncer {
     }
 
     /**
+     * Retrieve the file ID of our keyrings/ folder
+     *
+     * @return The Drive file of keyrings/
+     */
+    private String getKeyringsFolderId() {
+        String folderIdKey = mContext.getString(R.string.prefs_keyrings_folder_id) + mAccount.name;
+        return PreferenceManager.getDefaultSharedPreferences(mContext).getString(folderIdKey, null);
+    }
+
+    /**
+     * Store the file ID of out keyrings/ folder
+     *
+     * @param keyringsFolderId The folderID of keyrings/
+     */
+    private void setKeyringsFolderId(String keyringsFolderId) {
+        SharedPreferences.Editor editor =
+                PreferenceManager.getDefaultSharedPreferences(mContext).edit();
+        editor.putString(mContext.getString(R.string.prefs_keyrings_folder_id) + mAccount.name, keyringsFolderId);
+        editor.commit();
+        mKeyringsFolderId = keyringsFolderId;
+    }
+
+    /**
      * Retrieve a authorized service object to send requests to the Google Drive
      * API. On failure to retrieve an access token, a notification is sent to the
      * user requesting that authorization be granted for the
@@ -161,7 +186,7 @@ public class DriveSyncer {
     /**
      * https://code.google.com/p/android-drive-sync/source/browse/Andriod/src/com/example/android/cloudnotes/service/DriveSyncService.java?r=132ae2b9502ba630182183bd16629f74127f6e93
      *
-     * @return
+     * @return The access token
      */
     private String getAccessToken() {
         try {
@@ -188,7 +213,9 @@ public class DriveSyncer {
         if (mService == null) {
             return;
         }
+
         Log.d(TAG, "Performing sync for " + mAccount.name);
+
         if (mLargestChangeId == -1) {
             // First sync
             performFullSync();
@@ -222,7 +249,6 @@ public class DriveSyncer {
                         // The file has not been updated on Drive, eventually update the Drive file.
                         File driveFile = mService.files().get(fileId).execute();
                         mergeFiles(localFileUri, cursor, driveFile);
-//                        uploadFileToDrive(localFileUri);
                     }
                     mContext.getContentResolver().notifyChange(localFileUri, null, false);
                 }
@@ -237,6 +263,52 @@ public class DriveSyncer {
             }
         }
     }
+
+    /**
+     * Performs a full sync, usually occurs the first time a sync occurs for the
+     * account.
+     */
+    private void performFullSync() {
+        Log.d(TAG, "Performing FULL sync for " + mAccount.name);
+        String keyringFolderName = mContext.getString(R.string.keyring_folder);
+        try {
+            // Get the largest change Id first to avoid race conditions.
+            About about = mService.about().get().execute();
+            setLargestChangeId(about.getLargestChangeId());
+            Drive.Files.List request =
+                    mService.files().list()
+                            .setQ("'" + about.getRootFolderId() + "' in parents " +
+                                    "and mimeType='application/vnd.google-apps.folder' " +
+                                    "and trashed=false " +
+                                    "and title='" + keyringFolderName + "'");
+            FileList files = request.execute();
+            if (files.getItems().size() == 0) {
+                // Keyrings folder NOT found
+                createParentFolder();
+                insertNewLocalFiles();
+            } else {
+                // Keyrings folder found
+                setKeyringsFolderId(files.getItems().get(0).getId());
+                Log.i(TAG, "Found matching folder : " + mKeyringsFolderId);
+                // TODO filter by fileExtension='keyring' instead of searching for matching files afterwards
+                request = mService.files().list().setQ("'" + mKeyringsFolderId + "' in parents and trashed=false"); //and fileExtension='keyring'");
+                Log.d(TAG, "QUERY: " + mService.files().list().getQ());
+                files = request.execute();
+                if (files.getItems().size() > 0) {
+                    List<File> keyringFiles = new ArrayList<File>();
+                    for (File file : files.getItems()) {
+                        if (file.getTitle().endsWith(".keyring")) {
+                            keyringFiles.add(file);
+                        }
+                    }
+                    insertNewDriveFiles(keyringFiles);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 
     /**
      * Merge a local file with a Google Drive File.
@@ -293,17 +365,29 @@ public class DriveSyncer {
         } else if (localFileModificationDate < driveFile.getModifiedDate().getValue()) {
             // Update local file.
             Log.d(TAG, "  > Updating local file.");
-            ContentValues values = new ContentValues();
-            values.put(Keyring.Keyrings.COLUMN_NAME_TITLE, driveFile.getTitle());
-            values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, driveFile.getModifiedDate()
-                    .getValue());
 
             try {
-                // Only download the content if it has changed.
-                if (localMd5 != driveFile.getMd5Checksum()) {
-                    downloadDriveFile(driveFile);
+                if (driveFile.getExplicitlyTrashed() == true) {
+                    // Remove local entry
+//                    mProvider.delete(localFileUri, null, null);
+                    // Remove local file
+                    if (localFile.delete() == true) {
+                        Log.d(TAG, "Removed file " + localFile.getName());
+                    }
+                    // Remove Drive file permanently (skip trash)
+                    mService.files().delete(driveFile.getId()).execute();
                 }
-                mProvider.update(localFileUri, values, null, null);
+                // Only download the content if it has changed.
+                else {
+                    if (localMd5 != driveFile.getMd5Checksum()) {
+                        downloadDriveFile(driveFile);
+                    }
+                    ContentValues values = new ContentValues();
+                    values.put(Keyring.Keyrings.COLUMN_NAME_TITLE, driveFile.getTitle());
+                    values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, driveFile.getModifiedDate()
+                            .getValue());
+                    mProvider.update(localFileUri, values, null, null);
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (RemoteException e) {
@@ -321,7 +405,7 @@ public class DriveSyncer {
         if (!parentFolderExists()) {
             createParentFolder();
         }
-//            keyringFiles = getKeyringFiles();    keyring
+//            keyringFiles = getKeyringFiles();
         Log.i(TAG, "FILES LIST UPDATED: " + keyringFiles.size());
 //        } catch (UserRecoverableAuthIOException e) {
 ////            Activity.startActivityForResult(e.getIntent(), REQUEST_AUTHORIZATION);
@@ -331,6 +415,11 @@ public class DriveSyncer {
 //        }
     }
 
+    /**
+     * Check if the keyrings/ folder already exists.
+     *
+     * @return True, if /My Files/keyrings/ exists
+     */
     private boolean parentFolderExists() {
         String keyringFolderName = mContext.getString(R.string.keyring_folder);
         boolean exists = false;
@@ -359,9 +448,11 @@ public class DriveSyncer {
     }
 
     /**
-     * Create a folder named keyring in the user's root directory
+     * Create a folder named keyrings in the user's root directory
+     *
+     * @return The fileID of the newly created folder, null if its creation failed
      */
-    private void createParentFolder() {
+    private String createParentFolder() {
         Log.i(TAG, "Found NO matching folder. Creating...");
         File body = new File();
         body.setTitle(mContext.getString(R.string.keyring_folder));
@@ -370,11 +461,12 @@ public class DriveSyncer {
             File file = mService.files().insert(body).execute();
             if (file != null) {
                 setKeyringsFolderId(file.getId());
-                Log.i(TAG, "Keyrings folder ID: " + file.getId());
+                return file.getId();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return null;
     }
 
     /**
@@ -447,49 +539,6 @@ public class DriveSyncer {
         mContext.getContentResolver().notifyChange(uri, null, false);
     }
 
-    /**
-     * Performs a full sync, usually occurs the first time a sync occurs for the
-     * account.
-     */
-    private void performFullSync() {
-        Log.d(TAG, "Performing FULL sync for " + mAccount.name);
-        String keyringFolderName = mContext.getString(R.string.keyring_folder);
-        About about;
-        try {
-            about = mService.about().get().execute();
-            Drive.Files.List request =
-                    mService.files().list()
-                            .setQ("'" + about.getRootFolderId() + "' in parents " +
-                                    "and mimeType='application/vnd.google-apps.folder' " +
-                                    "and trashed=false " +
-                                    "and title='" + keyringFolderName + "'");
-            FileList files = request.execute();
-            if (files.getItems().size() == 0) {
-                // Keyrings folder found
-                createParentFolder();
-//                insertNewLocalFiles();
-            } else {
-                setKeyringsFolderId(files.getItems().get(0).getId());
-                Log.i(TAG, "Found matching folder : " + mKeyringsFolderId);
-                request = mService.files().list().setQ("'" + mKeyringsFolderId + "' in parents and trashed=false"); //and fileExtension='keyring'");
-                Log.v(TAG, "QUERY: " + mService.files().list().getQ());
-                files = request.execute();
-                if (files.getItems().size() > 0) {
-                    List<File> keyringFiles = new ArrayList<File>();
-                    for (File file : files.getItems()) {
-                        if (file.getTitle().endsWith(".keyring")) {
-                            keyringFiles.add(file);
-                        }
-                    }
-                    insertNewDriveFiles(keyringFiles);
-                    setLargestChangeId(about.getLargestChangeId());
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     private File uploadFileToDrive(java.io.File localFile) throws IOException {
         Log.i(TAG, "Uploading " + localFile.getName());
         // File's metadata.
@@ -534,41 +583,6 @@ public class DriveSyncer {
         outputStream.close();
     }
 
-    /**
-     * Compute the MD5 checksum of the provided string data from <a
-     * href="http://stackoverflow.com/a/304350/1106381"
-     * >http://stackoverflow.com/a/304350/1106381</a>.
-     *
-     * @param string Data to compute the MD5 checksum from.
-     * @return The MD5 checksum as string.
-     */
-    public static String md5(String string) {
-        byte[] hash;
-        try {
-            hash = MessageDigest.getInstance("MD5").digest(string.getBytes("UTF-8"));
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Huh, MD5 should be supported?", e);
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("Huh, UTF-8 should be supported?", e);
-        }
-        StringBuilder hex = new StringBuilder(hash.length * 2);
-        for (byte b : hash) {
-            if ((b & 0xFF) < 0x10) hex.append("0");
-            hex.append(Integer.toHexString(b & 0xFF));
-        }
-        return hex.toString();
-    }
 
-    private static Uri getKeyringsUri(String accountName) {
-        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/");
-    }
-
-    private static Uri getKeyringUri(String accountName, String keyringId) {
-        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/" + keyringId);
-    }
-
-    private static Uri getFileUri(String accountName, String fileId) {
-        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/" + fileId);
-    }
 
 }
