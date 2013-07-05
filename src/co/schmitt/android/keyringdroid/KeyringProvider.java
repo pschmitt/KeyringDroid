@@ -16,13 +16,8 @@
 
 package co.schmitt.android.keyringdroid;
 
-import android.content.ClipDescription;
-import android.content.ContentProvider;
+import android.content.*;
 import android.content.ContentProvider.PipeDataWriter;
-import android.content.ContentUris;
-import android.content.ContentValues;
-import android.content.Context;
-import android.content.UriMatcher;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.database.Cursor;
@@ -36,12 +31,7 @@ import android.os.ParcelFileDescriptor;
 import android.text.TextUtils;
 import android.util.Log;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.util.HashMap;
 
 
@@ -70,7 +60,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
     /**
      * Standard projection for the interesting columns of a normal keyring.
      */
-    private static final String[] READ_NOTE_PROJECTION = new String[] {
+    private static final String[] READ_NOTE_PROJECTION = new String[]{
             Keyring.Keyrings.COLUMN_NAME_FILENAME,
             Keyring.Keyrings.COLUMN_NAME_TITLE};
     private static final int READ_NOTE_NOTE_INDEX = 0;
@@ -115,7 +105,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
 
         // Add a pattern that routes URIs terminated with "keyrings" plus an integer
         // to a keyring ID operation
-        sUriMatcher.addURI(Keyring.AUTHORITY, "*/keyrings/#", KEYRING_ID);
+        sUriMatcher.addURI(Keyring.AUTHORITY, "*/keyring/#", KEYRING_ID);
 
         // Add a pattern that routes URIs terminated with "files" plus an ID
         // to a file ID operation
@@ -152,7 +142,6 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
     }
 
     /**
-     *
      * This class helps open, create, and upgrade the database file. Set to
      * package visibility for testing purposes.
      */
@@ -164,12 +153,13 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
         }
 
         /**
-         *
          * Creates the underlying database with table name and column names taken
          * from the Keyring class.
          */
         @Override
         public void onCreate(SQLiteDatabase db) {
+            // TODO Remove Title or Filename (dupplicates) + Make Title/Filename unique !
+
             db.execSQL("CREATE TABLE " + Keyring.Keyrings.TABLE_NAME + " (" + Keyring.Keyrings._ID
                     + " INTEGER PRIMARY KEY," + Keyring.Keyrings.COLUMN_NAME_TITLE + " TEXT,"
                     + Keyring.Keyrings.COLUMN_NAME_FILENAME + " TEXT," + Keyring.Keyrings.COLUMN_NAME_CREATE_DATE
@@ -179,7 +169,6 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
         }
 
         /**
-         *
          * Demonstrates that the provider must consider what happens when the
          * underlying datastore is changed. In this sample, the database is upgraded
          * the database by destroying the existing data. A real application should
@@ -357,19 +346,19 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
      * a stream.
      */
     static ClipDescription NOTE_STREAM_TYPES = new ClipDescription(null,
-            new String[] {ClipDescription.MIMETYPE_TEXT_PLAIN});
+            new String[]{ClipDescription.MIMETYPE_TEXT_PLAIN});
 
     /**
      * Returns the types of available data streams. URIs to specific keyrings are
      * supported. The application can convert such a keyring to a plain text stream.
      *
-     * @param uri the URI to analyze
+     * @param uri            the URI to analyze
      * @param mimeTypeFilter The MIME type to check for. This method only returns
-     *        a data stream type for MIME types that match the filter. Currently,
-     *        only text/plain MIME types match.
+     *                       a data stream type for MIME types that match the filter. Currently,
+     *                       only text/plain MIME types match.
      * @return a data stream MIME type. Currently, only text/plan is returned.
      * @throws IllegalArgumentException if the URI pattern doesn't match any
-     *         supported patterns.
+     *                                  supported patterns.
      */
     @Override
     public String[] getStreamTypes(Uri uri, String mimeTypeFilter) {
@@ -404,14 +393,14 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
      * {@link android.content.ContentProvider#openPipeHelper(Uri, String, Bundle, Object, PipeDataWriter)}
      * to start another thread in which to convert the data into a stream.
      *
-     * @param uri The URI pattern that points to the data stream
+     * @param uri            The URI pattern that points to the data stream
      * @param mimeTypeFilter A String containing a MIME type. This method tries to
-     *        get a stream of data with this MIME type.
-     * @param opts Additional options supplied by the caller. Can be interpreted
-     *        as desired by the content provider.
+     *                       get a stream of data with this MIME type.
+     * @param opts           Additional options supplied by the caller. Can be interpreted
+     *                       as desired by the content provider.
      * @return AssetFileDescriptor A handle to the file.
      * @throws FileNotFoundException if there is no file associated with the
-     *         incoming URI.
+     *                               incoming URI.
      */
     @Override
     public AssetFileDescriptor openTypedAssetFile(Uri uri, String mimeTypeFilter, Bundle opts)
@@ -597,7 +586,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
      * URI pattern, this method deletes the one record specified by the ID in the
      * URI. Otherwise, it deletes a a set of records. The record or records must
      * also match the input selection criteria specified by where and whereArgs.
-     *
+     * <p/>
      * If rows were deleted, then listeners are notified of the change.
      *
      * @return If a "where" clause is used, the number of rows affected is
@@ -679,7 +668,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
 
     /**
      * This is called when a client calls
-     * {@link android.content.ContentResolver#update(Uri,ContentValues,String,String[])}
+     * {@link android.content.ContentResolver#update(Uri, ContentValues, String, String[])}
      * Updates records in the database. The column names specified by the keys in
      * the values map are updated with new data specified by the values in the
      * map. If the incoming URI matches the keyring ID URI pattern, then the method
@@ -688,14 +677,14 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
      * selection criteria specified by where and whereArgs. If rows were updated,
      * then listeners are notified of the change.
      *
-     * @param uri The URI pattern to match and update.
-     * @param values A map of column names (keys) and new values (values).
-     * @param where An SQL "WHERE" clause that selects records based on their
-     *        column values. If this is null, then all records that match the URI
-     *        pattern are selected.
+     * @param uri       The URI pattern to match and update.
+     * @param values    A map of column names (keys) and new values (values).
+     * @param where     An SQL "WHERE" clause that selects records based on their
+     *                  column values. If this is null, then all records that match the URI
+     *                  pattern are selected.
      * @param whereArgs An array of selection criteria. If the "where" param
-     *        contains value placeholders ("?"), then each placeholder is replaced
-     *        by the corresponding element in the array.
+     *                  contains value placeholders ("?"), then each placeholder is replaced
+     *                  by the corresponding element in the array.
      * @return The number of rows updated.
      * @throws IllegalArgumentException if the incoming URI pattern is invalid.
      */

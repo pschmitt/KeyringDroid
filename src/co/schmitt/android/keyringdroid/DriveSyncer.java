@@ -40,6 +40,8 @@ public class DriveSyncer {
     private static final String TAG = "DriveSyncAdapter";
 
     private static final String OAUTH_SCOPE_PREFIX = "oauth2:";
+    private static final String MIME_BINARY = "application/octet-stream";
+    private static final String KEYRING_EXTENSION = "keyring";
 
     /**
      * Projection used for querying the database.
@@ -97,11 +99,11 @@ public class DriveSyncer {
      * Retrieve the URI of Keyring for a given account
      *
      * @param accountName The owner's account name
-     * @param keyringId  The ID of the keyring item
+     * @param keyringId   The ID of the keyring item
      * @return The URI of the Keyring
      */
     private static Uri getKeyringUri(String accountName, String keyringId) {
-        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/" + keyringId);
+        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyring/" + keyringId);
     }
 
     /**
@@ -112,7 +114,7 @@ public class DriveSyncer {
      * @return The URI of the file
      */
     private static Uri getFileUri(String accountName, String fileId) {
-        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/" + fileId);
+        return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/files/" + fileId);
     }
 
     /**
@@ -274,7 +276,7 @@ public class DriveSyncer {
         try {
             // Get the largest change Id first to avoid race conditions.
             About about = mService.about().get().execute();
-            setLargestChangeId(about.getLargestChangeId());
+            setLargestChangeId(about.getLargestChangeId() + 1);
             Drive.Files.List request =
                     mService.files().list()
                             .setQ("'" + about.getRootFolderId() + "' in parents " +
@@ -291,7 +293,7 @@ public class DriveSyncer {
                 setKeyringsFolderId(files.getItems().get(0).getId());
                 Log.i(TAG, "Found matching folder : " + mKeyringsFolderId);
                 // TODO filter by fileExtension='keyring' instead of searching for matching files afterwards
-                request = mService.files().list().setQ("'" + mKeyringsFolderId + "' in parents and trashed=false"); //and fileExtension='keyring'");
+                request = mService.files().list().setQ("'" + mKeyringsFolderId + "' in parents"); //and trashed=false"); //and fileExtension='keyring'");
                 Log.d(TAG, "QUERY: " + mService.files().list().getQ());
                 files = request.execute();
                 if (files.getItems().size() > 0) {
@@ -326,8 +328,10 @@ public class DriveSyncer {
         String localFilename = localFileCursor.getString(COLUMN_INDEX_FILENAME);
         java.io.File localFile = new java.io.File(mContext.getFilesDir(), localFilename);
         String localMd5 = MD5.calculateMD5(localFile);
+
         Log.d(TAG, "Modification dates: " + localFileModificationDate + " - "
                 + driveFile.getModifiedDate().getValue());
+
         if (localFileModificationDate > driveFile.getModifiedDate().getValue()) {
             // Update remote file (Drive)
             try {
@@ -367,19 +371,19 @@ public class DriveSyncer {
             Log.d(TAG, "  > Updating local file.");
 
             try {
-                if (driveFile.getExplicitlyTrashed() == true) {
+                if (driveFile.getLabels().getTrashed()) {
+                    //if (driveFile.getExplicitlyTrashed()) {
                     // Remove local entry
 //                    mProvider.delete(localFileUri, null, null);
                     // Remove local file
-                    if (localFile.delete() == true) {
+                    if (localFile.delete()) {
                         Log.d(TAG, "Removed file " + localFile.getName());
                     }
                     // Remove Drive file permanently (skip trash)
                     mService.files().delete(driveFile.getId()).execute();
-                }
-                // Only download the content if it has changed.
-                else {
-                    if (localMd5 != driveFile.getMd5Checksum()) {
+                } else {
+                    // Only download the content if it has changed.
+                    if (!localMd5.equals(driveFile.getMd5Checksum())) {
                         downloadDriveFile(driveFile);
                     }
                     ContentValues values = new ContentValues();
@@ -397,22 +401,102 @@ public class DriveSyncer {
     }
 
     /**
-     * Insert all new local files in Google Drive.
+     * Insert (upload) all new local files in Google Drive.
      */
     private void insertNewLocalFiles() {
-        List<File> keyringFiles = new ArrayList<File>();
-//        try {
+        Uri uri = getKeyringsUri(mAccount.name);
+
         if (!parentFolderExists()) {
             createParentFolder();
         }
-//            keyringFiles = getKeyringFiles();
-        Log.i(TAG, "FILES LIST UPDATED: " + keyringFiles.size());
-//        } catch (UserRecoverableAuthIOException e) {
-////            Activity.startActivityForResult(e.getIntent(), REQUEST_AUTHORIZATION);
-//            Log.i(TAG, "FILES LIST UPDATED: " + keyringFiles.size());
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+
+        try {
+            Cursor cursor =
+                    mProvider.query(uri, PROJECTION, Keyring.Keyrings.COLUMN_NAME_FILE_ID + " is NULL", null,
+                            null);
+
+            Log.d(TAG, "Inserting new local files: " + cursor.getCount());
+
+            if (cursor.moveToFirst()) {
+                do {
+                    Uri localFileUri = getKeyringUri(mAccount.name, cursor.getString(COLUMN_INDEX_ID));
+
+                    if (cursor.getShort(COLUMN_INDEX_DELETED) != 0) {
+                        mProvider.delete(localFileUri, null, null);
+                    } else {
+
+                        File newFile = new File();
+                        File insertedFile = null;
+                        String fileName = cursor.getString(COLUMN_INDEX_FILENAME);
+
+                        Log.i(TAG, "Uploading " + fileName);
+
+                        java.io.File localFile = new java.io.File(fileName);
+                        FileContent mediaContent = new FileContent(null, localFile);
+                        newFile.setTitle(fileName + "_UPLOADEDBYKRD");
+
+
+                        // Set the parent folder.
+                        if (mKeyringsFolderId != null && mKeyringsFolderId.length() > 0) {
+                            newFile.setParents(
+                                    Arrays.asList(new ParentReference().setId(mKeyringsFolderId)));
+                        }
+
+                        try {
+                            insertedFile = mService.files().insert(newFile, mediaContent).execute();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        // Update the local file to add the file ID.
+                        ContentValues values = new ContentValues();
+                        values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, insertedFile
+                                .getModifiedDate().getValue());
+                        values.put(Keyring.Keyrings.COLUMN_NAME_CREATE_DATE, insertedFile.getCreatedDate()
+                                .getValue());
+                        values.put(Keyring.Keyrings.COLUMN_NAME_FILE_ID, insertedFile.getId());
+
+                        mProvider.update(localFileUri, values, null, null);
+                    }
+                } while (cursor.moveToNext());
+            }
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Insert new Google Drive files in the local database.
+     *
+     * @param driveFiles Collection of Google Drive files to insert.
+     */
+    private void insertNewDriveFiles(Collection<File> driveFiles) {
+        Log.d(TAG, "Inserting new Drive files: " + driveFiles.size());
+        Uri uri = getKeyringsUri(mAccount.name);
+
+        for (File driveFile : driveFiles) {
+            String fileName = driveFile.getTitle();
+            if (driveFile != null && fileName != null && fileName.endsWith(KEYRING_EXTENSION)) {
+                ContentValues values = new ContentValues();
+                values.put(Keyring.Keyrings.COLUMN_NAME_ACCOUNT, mAccount.name);
+                values.put(Keyring.Keyrings.COLUMN_NAME_FILE_ID, driveFile.getId());
+                values.put(Keyring.Keyrings.COLUMN_NAME_TITLE, driveFile.getTitle());
+                values.put(Keyring.Keyrings.COLUMN_NAME_FILENAME, driveFile.getTitle());
+                values.put(Keyring.Keyrings.COLUMN_NAME_CREATE_DATE, driveFile.getCreatedDate().getValue());
+                values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, driveFile.getModifiedDate().getValue());
+
+                try {
+                    downloadDriveFile(driveFile);
+                    Log.d(TAG, "MIME-Type:" + driveFile.getMimeType());
+                    mProvider.insert(uri, values);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        mContext.getContentResolver().notifyChange(uri, null, false);
     }
 
     /**
@@ -478,20 +562,24 @@ public class DriveSyncer {
      */
     private Map<String, File> getChangedFiles(long changeId) {
         Map<String, File> result = new HashMap<String, File>();
-
+        // TODO only get through changes in keyrings/ folder ?
         try {
             Drive.Changes.List request = mService.changes().list().setStartChangeId(changeId);
             do {
                 ChangeList changes = request.execute();
-                long largestChangeId = changes.getLargestChangeId().longValue();
+                long largestChangeId = changes.getLargestChangeId();
 
                 for (Change change : changes.getItems()) {
                     if (change.getDeleted()) {
                         result.put(change.getFileId(), null);
                     }
-                    /*else if (TEXT_PLAIN.equals(change.getFile().getMimeType())) {
-                        result.put(change.getFileId(), change.getFile());
-                    } */
+                    // TODO
+                    else if (MIME_BINARY.equals(change.getFile().getMimeType())) {
+                        String fileName = change.getFile().getTitle();
+                        if (fileName != null && fileName.endsWith(KEYRING_EXTENSION)) {
+                            result.put(change.getFileId(), change.getFile());
+                        }
+                    }
                 }
                 if (largestChangeId > mLargestChangeId) {
                     setLargestChangeId(largestChangeId);
@@ -508,44 +596,17 @@ public class DriveSyncer {
 
 
     /**
-     * Insert new Google Drive files in the local database.
+     * Upload a file to Google Drive
      *
-     * @param driveFiles Collection of Google Drive files to insert.
+     * @param localFile The file to upload
+     * @return The uploaded Drive File, null if upload failed
+     * @throws IOException
      */
-    private void insertNewDriveFiles(Collection<File> driveFiles) {
-        Log.d(TAG, "Inserting new Drive files: " + driveFiles.size());
-        Uri uri = getKeyringsUri(mAccount.name);
-
-        for (File driveFile : driveFiles) {
-            if (driveFile != null) {
-                ContentValues values = new ContentValues();
-                values.put(Keyring.Keyrings.COLUMN_NAME_ACCOUNT, mAccount.name);
-                values.put(Keyring.Keyrings.COLUMN_NAME_FILE_ID, driveFile.getId());
-                values.put(Keyring.Keyrings.COLUMN_NAME_TITLE, driveFile.getTitle());
-                values.put(Keyring.Keyrings.COLUMN_NAME_FILENAME, driveFile.getTitle());
-                values.put(Keyring.Keyrings.COLUMN_NAME_CREATE_DATE, driveFile.getCreatedDate().getValue());
-                values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, driveFile.getModifiedDate().getValue());
-
-                try {
-                    downloadDriveFile(driveFile);
-                    mProvider.insert(uri, values);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } catch (RemoteException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        mContext.getContentResolver().notifyChange(uri, null, false);
-    }
-
     private File uploadFileToDrive(java.io.File localFile) throws IOException {
         Log.i(TAG, "Uploading " + localFile.getName());
         // File's metadata.
         File body = new File();
         body.setTitle(localFile.getName() + "_ADDED BY KEYRINGDROID");
-//        body.setDescription(description);
-//        body.setMimeType(mimeType);
 
         // Set the parent folder.
         if (mKeyringsFolderId != null && mKeyringsFolderId.length() > 0) {
@@ -556,23 +617,29 @@ public class DriveSyncer {
         // File's content.
         FileContent mediaContent = new FileContent(null, localFile);//new FileContent(mimeType, localFile);
         try {
-            File file = mService.files().insert(body, mediaContent).execute();
-            // Uncomment the following line to print the File ID.
-            // System.out.println("File ID: %s" + file.getId());
-            return file;
+            return mService.files().insert(body, mediaContent).execute();
         } catch (IOException e) {
             System.out.println("An error occured: " + e);
             return null;
         }
     }
 
+    /**
+     * Download a file from Google Drive to internal storage
+     *
+     * @param driveFile The file to download
+     * @throws IOException
+     */
     private void downloadDriveFile(File driveFile) throws IOException {
         Log.i(TAG, "Downloading " + driveFile.getDownloadUrl());
         HttpResponse resp =
                 mService.getRequestFactory().buildGetRequest(new GenericUrl(driveFile.getDownloadUrl()))
                         .execute();
         InputStream downloadedFile = resp.getContent();
-        FileOutputStream outputStream = mContext.openFileOutput(driveFile.getTitle(), Context.MODE_PRIVATE);
+        java.io.File parentFolder = new java.io.File(mAccount.name + "/");
+        parentFolder.mkdir();
+        Log.d(TAG, "Create folder " + parentFolder.getName());
+        FileOutputStream outputStream = mContext.openFileOutput(parentFolder.getName() + "/" + driveFile.getTitle(), Context.MODE_PRIVATE);
         Log.i(TAG, "Content: " + downloadedFile);
         byte buffer[] = new byte[1024];
         int length;
@@ -582,7 +649,4 @@ public class DriveSyncer {
         downloadedFile.close();
         outputStream.close();
     }
-
-
-
 }

@@ -14,11 +14,8 @@ import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.widget.DrawerLayout;
 import android.view.*;
 import android.widget.*;
-import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.accounts.GoogleAccountManager;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
-import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 
 import java.util.ArrayList;
@@ -56,6 +53,7 @@ public class MainActivity extends Activity {
             }
         }
     };
+    private String AUTHORITY = "co.schmitt.android.provider.KeyringDroid";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -138,18 +136,26 @@ public class MainActivity extends Activity {
         super.onPause();
     }
 
+    /**
+     * Retrieve the currently selected account name from SharedPreferences
+     *
+     * @return The currently selected account
+     */
     private String getSelectedAccountName() {
         String accountNameKey = getString(R.string.prefs_account_name);
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         return prefs.getString(accountNameKey, null);
     }
 
+    /**
+     * Set the currently selected account name and save it in SharedPreferences
+     *
+     * @param accountName
+     */
     private void setSelectedAccountName(String accountName) {
         String accountNameKey = getString(R.string.prefs_account_name);
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         prefs.edit().putString(accountNameKey, accountName).commit();
-        // TODO use this following line ?
-//        GoogleAuthUtil.getToken(getApplicationContext(), accountName, "oauth2:" + DriveScopes.DRIVE_FILE);
     }
 
     @Override
@@ -195,6 +201,7 @@ public class MainActivity extends Activity {
                         credential.setSelectedAccountName(accountName);
                         // Store account name in shared preferences
                         setSelectedAccountName(accountName);
+                        enableAutoSync();
                         showToast("Selected account: " + credential.getSelectedAccountName());
                     }
                 }
@@ -209,7 +216,9 @@ public class MainActivity extends Activity {
         }
     }
 
-    /* The click listner for ListView in the navigation drawer */
+    /**
+     * The click listner for ListView in the navigation drawer - calls selectedItem
+     */
     private class DrawerItemClickListener implements ListView.OnItemClickListener {
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -217,6 +226,11 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * Get called when a settings item in NavigationDrawer is selected
+     *
+     * @param position The position in the NavigationDrawer ListView
+     */
     private void selectItem(int position) {
         // update the main content by replacing fragments
         Fragment fragment = new PlanetFragment();
@@ -233,32 +247,17 @@ public class MainActivity extends Activity {
         mDrawerLayout.closeDrawer(mDrawerList);
     }
 
-    /*private void checkIfFolderExists() throws IOException {
-        About about = service.about().get().execute();
-        Log.i("krg", "Root folder ID: " + about.getRootFolderId());
-        Drive.Files.List request =
-                service.files().list()
-                        .setQ("'" + about.getRootFolderId() + "' in parents " +
-                                "and mimeType='application/vnd.google-apps.folder' " +
-                                "and trashed=false " +
-                                "and title='" + keyringFolderName + "'");
-        FileList files = request.execute();
-        if (files.getItems().size() == 0) {
-            Log.i("krg", "Found NO matching folder. Creating...");
-            File body = new File();
-            body.setTitle(keyringFolderName);
-            body.setMimeType("application/vnd.google-apps.folder");
-            File file = service.files().insert(body).execute();
-            if (file != null) {
-                keyringsFolderId = file.getId();
-                Log.i("krg", "Keyrings folder ID: " + file.getId());
-            }
-        } else {
-            keyringsFolderId = files.getItems().get(0).getId();
-            Log.i("krg", "Found matching folder : " + keyringsFolderId);
-        }
-    }*/
+    /**
+     * Enable sync
+     */
+    private void enableAutoSync() {
+        ContentResolver.setIsSyncable(credential.getSelectedAccount(), AUTHORITY, 1);
+        ContentResolver.setSyncAutomatically(credential.getSelectedAccount(), AUTHORITY, true);
+    }
 
+    /**
+     * Request a synchronisation
+     */
     private void requestSync() {
         final GoogleAccountManager accountManager = new GoogleAccountManager(this);
         Account account = credential.getSelectedAccount();
@@ -266,37 +265,17 @@ public class MainActivity extends Activity {
 //            getContentResolver().notifyChange(rowUri, null, true);
             Bundle options = new Bundle();
             options.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
-            ContentResolver.requestSync(account, "co.schmitt.android.provider.KeyringDroid", options);
+            ContentResolver.requestSync(account, AUTHORITY, options);
         }
     }
 
-    private Drive getDriveService(GoogleAccountCredential credential) {
-        return new Drive.Builder(AndroidHttp.newCompatibleTransport(), new GsonFactory(), credential)
-                .build();
-    }
-
-    private void updateList() {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-               /* final ListView listview= (ListView) findViewById(R.id.keyringListView);
-                final ArrayList<String> list = new ArrayList<String>();
-                for (File kr : keyringFiles) {
-                    list.add(kr.getTitle());
-                }
-                ArrayAdapter arrayAdapter = new ArrayAdapter(getApplicationContext(), android.R.layout.simple_list_item_1, list);
-                listview.setAdapter(arrayAdapter);*/
-            }
-        });
-    }
-
+    /**
+     * Simple wrapper that displays a toast message
+     *
+     * @param toast The message to display
+     */
     public void showToast(final String toast) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(getApplicationContext(), toast, Toast.LENGTH_SHORT).show();
-            }
-        });
+        Toast.makeText(getApplicationContext(), toast, Toast.LENGTH_SHORT).show();
     }
 
     /**
