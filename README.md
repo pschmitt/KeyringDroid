@@ -15,6 +15,10 @@ TODO
 
 - Security -> Copy username/password to clipboard and wipe after paste + Timeout
 
+- Create keyrings within the app
+
+- Support other keyrings (gnome-keyring only now)
+
 - Licensing -> *WTFPL* / GPL 3 / BSD ?
 
 - Code clean up
