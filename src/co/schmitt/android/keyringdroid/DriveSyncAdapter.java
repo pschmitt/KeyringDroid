@@ -8,17 +8,15 @@ import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.SyncResult;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 
 /**
  * Created with IntelliJ IDEA.
  * User: pschmitt
  * Date: 7/1/13
  * Time: 7:53 PM
- * To change this template use File | Settings | File Templates.
  */
 public class DriveSyncAdapter extends AbstractThreadedSyncAdapter {
-    /** The context in which the Sync Adapter runs. */
-    private Context mContext;
 
     /**
      * Constructs a new DriveSyncAdapter.
@@ -26,13 +24,17 @@ public class DriveSyncAdapter extends AbstractThreadedSyncAdapter {
      */
     public DriveSyncAdapter(Context context, boolean autoInitialize) {
         super(context, autoInitialize);
-        mContext = context;
+        // Allow parallel sync
+//        super(context, autoInitialize, true);
     }
 
     @Override
     public void onPerformSync(Account account, Bundle bundle, String authority,
                               ContentProviderClient provider, SyncResult syncResult) {
-        DriveSyncer syncer = new DriveSyncer(mContext, provider, account);
+        DriveSyncer syncer = new DriveSyncer(getContext(), provider, account);
+        // TODO set sync interval and result with SyncResult -> Pass it to syncer ?
         syncer.performSync();
+        String syncIntervalKey = getContext().getString(R.string.prefs_sync_interval) + account.name;
+        syncResult.delayUntil = PreferenceManager.getDefaultSharedPreferences(getContext()).getLong(syncIntervalKey, 5 * 60);
     }
 }

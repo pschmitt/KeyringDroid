@@ -14,8 +14,8 @@
     </string-array>
     <string name="drawer_open">Open navigation drawer</string>
     <string name="drawer_close">Close navigation drawer</string>
-    <string name="prefs_first_launch">first_launch</string>
     <string name="prefs_account_name">account_name</string>
-    <string name="prefs_keyrings_folder_id">keyrings_folder_id</string>
+    <string name="prefs_keyrings_folder_id">keyrings_folder_id_</string>
     <string name="prefs_largest_change">largest_change_</string>
+    <string name="prefs_sync_interval">sync_interval_</string>
 </resources>

@@ -9,7 +9,6 @@ import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import com.google.android.gms.auth.GoogleAuthException;
-import com.google.android.gms.auth.GoogleAuthUtil;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
@@ -165,6 +164,16 @@ public class DriveSyncer {
     }
 
     /**
+     * Retrieve the local path where keyring files are stored
+     * Example: /data/data/co.schmitt.android.keyringdroid/files/$EMAIL/
+     *
+     * @return The local keyrings path
+     */
+    private String getLocalParentFolderPath() {
+        return mContext.getFilesDir() + java.io.File.separator + mAccount.name + java.io.File.separator;
+    }
+
+    /**
      * Retrieve a authorized service object to send requests to the Google Drive
      * API. On failure to retrieve an access token, a notification is sent to the
      * user requesting that authorization be granted for the
@@ -179,33 +188,23 @@ public class DriveSyncer {
             GoogleAccountCredential credential = GoogleAccountCredential.usingOAuth2(mContext, scopes);
             credential.setSelectedAccountName(mAccount.name);
             // Trying to get a token right away to see if we are authorized
-            mToken = getAccessToken();
+            try {
+                mToken = credential.getToken();//getAccessToken();
+            } catch (UserRecoverableAuthException e) {
+                // Ask for authorization
+                Intent authRequiredIntent = new Intent(MainActivity.LB_AUTH_APP);
+                authRequiredIntent.putExtra(MainActivity.EXTRA_AUTH_APP_INTENT, e.getIntent());
+                LocalBroadcastManager.getInstance(mContext).sendBroadcast(
+                        authRequiredIntent);
+            } catch (GoogleAuthException e) {
+//                Log.e(getClass().getSimpleName(), "Fatal authorization exception", e);
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             mService = new Drive.Builder(AndroidHttp.newCompatibleTransport(), new GsonFactory(), credential).build();
         }
         return mService;
-    }
-
-    /**
-     * https://code.google.com/p/android-drive-sync/source/browse/Andriod/src/com/example/android/cloudnotes/service/DriveSyncService.java?r=132ae2b9502ba630182183bd16629f74127f6e93
-     *
-     * @return The access token
-     */
-    private String getAccessToken() {
-        try {
-            return GoogleAuthUtil.getToken(mContext, mAccount.name, OAUTH_SCOPE_PREFIX
-                    + DriveScopes.DRIVE);
-        } catch (UserRecoverableAuthException e) {
-            Intent authRequiredIntent = new Intent(MainActivity.LB_AUTH_APP);
-            authRequiredIntent.putExtra(MainActivity.EXTRA_AUTH_APP_INTENT, e.getIntent());
-            LocalBroadcastManager.getInstance(mContext).sendBroadcast(
-                    authRequiredIntent);
-        } catch (GoogleAuthException e) {
-            Log.e(getClass().getSimpleName(), "Fatal authorization exception", e);
-        } catch (IOException e) {
-            // FIXME do exponential backoff
-            e.printStackTrace();
-        }
-        return null;
     }
 
     /**
@@ -326,7 +325,7 @@ public class DriveSyncer {
     private void mergeFiles(Uri localFileUri, Cursor localFileCursor, File driveFile) {
         long localFileModificationDate = localFileCursor.getLong(COLUMN_INDEX_MODIFICATION_DATE);
         String localFilename = localFileCursor.getString(COLUMN_INDEX_FILENAME);
-        java.io.File localFile = new java.io.File(mContext.getFilesDir(), localFilename);
+        java.io.File localFile = new java.io.File(getLocalParentFolderPath(), localFilename);
         String localMd5 = MD5.calculateMD5(localFile);
 
         Log.d(TAG, "Modification dates: " + localFileModificationDate + " - "
@@ -431,7 +430,7 @@ public class DriveSyncer {
 
                         Log.i(TAG, "Uploading " + fileName);
 
-                        java.io.File localFile = new java.io.File(fileName);
+                        java.io.File localFile = new java.io.File(getLocalParentFolderPath(), fileName);
                         FileContent mediaContent = new FileContent(null, localFile);
                         newFile.setTitle(fileName + "_UPLOADEDBYKRD");
 
@@ -636,10 +635,10 @@ public class DriveSyncer {
                 mService.getRequestFactory().buildGetRequest(new GenericUrl(driveFile.getDownloadUrl()))
                         .execute();
         InputStream downloadedFile = resp.getContent();
-        java.io.File parentFolder = new java.io.File(mAccount.name + "/");
-        parentFolder.mkdir();
-        Log.d(TAG, "Create folder " + parentFolder.getName());
-        FileOutputStream outputStream = mContext.openFileOutput(parentFolder.getName() + "/" + driveFile.getTitle(), Context.MODE_PRIVATE);
+        java.io.File parentFolder = new java.io.File(getLocalParentFolderPath());
+        parentFolder.mkdirs();
+        Log.d(TAG, "Create folder " + parentFolder.getAbsolutePath());
+        FileOutputStream outputStream = new FileOutputStream(parentFolder + java.io.File.separator + driveFile.getTitle(), false);//(driveFile.getTitle(), Context.MODE_PRIVATE);//mContext.openFileOutput(driveFile.getTitle(), Context.MODE_PRIVATE);
         Log.i(TAG, "Content: " + downloadedFile);
         byte buffer[] = new byte[1024];
         int length;

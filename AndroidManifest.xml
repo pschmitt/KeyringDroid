@@ -3,15 +3,21 @@
           package="co.schmitt.android.keyringdroid"
           android:versionCode="1"
           android:versionName="0.1">
+
     <uses-sdk android:minSdkVersion="17"/>
+
     <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.USE_CREDENTIALS"/>
     <uses-permission android:name="android.permission.READ_SYNC_STATS"/>
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>
-    <application android:label="@string/app_name" android:icon="@drawable/ic_launcher"
-                 android:hardwareAccelerated="true">
+
+    <application
+            android:label="@string/app_name"
+            android:icon="@drawable/ic_launcher"
+            android:hardwareAccelerated="true"
+            android:debuggable="true">
         <provider
                 android:name="KeyringProvider"
                 android:authorities="co.schmitt.android.provider.KeyringDroid"
@@ -28,11 +34,13 @@
                     android:name="android.content.SyncAdapter"
                     android:resource="@xml/syncadapter"/>
         </service>
-        <activity android:name="MainActivity"
-                  android:label="@string/app_name" android:theme="@android:style/Theme.Holo.Light.DarkActionBar">
-              <meta-data
-                android:name="com.google.android.apps.drive.APP_ID"
-                android:value="id=519807556467-a4qhb3t99ae09pqgvdc657bf8a7g176q.apps.googleusercontent.com" />
+        <activity
+                android:name="MainActivity"
+                android:label="@string/app_name"
+                android:theme="@android:style/Theme.Holo.Light.DarkActionBar">
+            <meta-data
+                    android:name="com.google.android.apps.drive.APP_ID"
+                    android:value="id=519807556467-06604e80lvmapbif8siflc0i032dnb68.apps.googleusercontent.com"/>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
