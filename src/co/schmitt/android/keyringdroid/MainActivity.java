@@ -119,6 +119,27 @@ public class MainActivity extends Activity {
         } else {
             startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
         }
+
+        // TEST
+//        ImageView profilePic = (ImageView) findViewById(R.id.profilePic);
+//        Cursor c = getContentResolver().query(ContactsContract.Profile.CONTENT_URI, null, null, null, null);
+//        int count = c.getCount();
+//        String[] columnNames = c.getColumnNames();
+//        String photoUri = c.getString(c.getColumnIndex("photo_thumb_uri"));
+//        Log.d(TAG, "Photo URI: " + photoUri);
+//        boolean b = c.moveToFirst();
+//        int position = c.getPosition();
+//        if (count == 1 && position == 0) {
+//            for (int j = 0; j < columnNames.length; j++) {
+//                String columnName = columnNames[j];
+//                String columnValue = c.getString(c.getColumnIndex(columnName));
+//                Log.d(TAG, "Namme: " + columnName);
+//                Log.d(TAG, "Value: " + columnValue);
+////                ...
+//                // consume the values here
+//            }
+//        }
+//        c.close();
     }
 
     @Override

@@ -18,4 +18,5 @@
     <string name="prefs_keyrings_folder_id">keyrings_folder_id_</string>
     <string name="prefs_largest_change">largest_change_</string>
     <string name="prefs_sync_interval">sync_interval_</string>
+    <string name="loading">PythonAPK running...</string>
 </resources>
