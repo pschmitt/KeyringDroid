@@ -7,11 +7,14 @@ import android.app.Fragment;
 import android.app.FragmentManager;
 import android.content.*;
 import android.content.res.Configuration;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v4.widget.DrawerLayout;
+import android.util.Log;
 import android.view.*;
 import android.widget.*;
 import com.google.api.client.googleapis.extensions.android.accounts.GoogleAccountManager;
@@ -42,6 +45,7 @@ public class MainActivity extends Activity {
     private ActionBarDrawerToggle mDrawerToggle;
     private Spinner mAccountSpinner;
     private ListView mDrawerList;
+    private ListView mKeyringList;
 
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
         @Override
@@ -119,6 +123,24 @@ public class MainActivity extends Activity {
         } else {
             startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
         }
+
+        // Populate keyring list
+        String[] PROJECTION = new String[]{Keyring.Keyrings._ID,
+                Keyring.Keyrings.COLUMN_NAME_TITLE, Keyring.Keyrings.COLUMN_NAME_FILENAME,
+                Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, Keyring.Keyrings.COLUMN_NAME_FILE_ID,
+                Keyring.Keyrings.COLUMN_NAME_DELETED};
+        mKeyringList = (ListView) findViewById(R.id.keyring_list);
+        Uri uri = Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/");
+        Cursor cursor =
+                getContentResolver().query(uri, PROJECTION, Keyring.Keyrings.COLUMN_NAME_FILE_ID + " IS NOT NULL",
+                        null, null);
+        Log.d(TAG, "Got local files: " + cursor.getCount());
+        ArrayList<String> keyringArray = new ArrayList<String>();
+        for (boolean more = cursor.moveToFirst(); more; more = cursor.moveToNext()) {
+            keyringArray.add(cursor.getString(2));
+        }
+        ArrayAdapter<String> keyrings = new ArrayAdapter<String>(getApplicationContext(), R.layout.keyring_list_item, keyringArray);
+        mKeyringList.setAdapter(keyrings);
 
         // TEST
 //        ImageView profilePic = (ImageView) findViewById(R.id.profilePic);
