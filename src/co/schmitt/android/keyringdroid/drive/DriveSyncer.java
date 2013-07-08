@@ -439,7 +439,6 @@ public class DriveSyncer {
 
                 try {
                     downloadDriveFile(driveFile);
-                    Log.d(TAG, "MIME-Type:" + driveFile.getMimeType());
                     mProvider.insert(uri, values);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -520,10 +519,11 @@ public class DriveSyncer {
                 long largestChangeId = changes.getLargestChangeId();
 
                 for (Change change : changes.getItems()) {
+                    // TODO proper handling of deleted files
                     if (change.getDeleted()) {
                         result.put(change.getFileId(), null);
                     }
-                    // TODO
+                    // TODO ?
                     else if (MIME_BINARY.equals(change.getFile().getMimeType())) {
                         String fileName = change.getFile().getTitle();
                         if (fileName != null && fileName.endsWith(KEYRING_EXTENSION)) {
@@ -580,14 +580,16 @@ public class DriveSyncer {
      * @throws IOException
      */
     private void downloadDriveFile(File driveFile) throws IOException {
-        Log.i(TAG, "Downloading " + driveFile.getDownloadUrl());
+        Log.d(TAG, "Downloading " + driveFile.getDownloadUrl());
         HttpResponse resp = mService.getRequestFactory().buildGetRequest(new GenericUrl(driveFile.getDownloadUrl())).execute();
         InputStream downloadedFile = resp.getContent();
         java.io.File parentFolder = new java.io.File(getLocalParentFolderPath());
         parentFolder.mkdirs();
         Log.d(TAG, "Create folder " + parentFolder.getAbsolutePath());
         FileOutputStream outputStream = new FileOutputStream(parentFolder + java.io.File.separator + driveFile.getTitle(), false);//(driveFile.getTitle(), Context.MODE_PRIVATE);//mContext.openFileOutput(driveFile.getTitle(), Context.MODE_PRIVATE);
-        Log.i(TAG, "Content: " + downloadedFile);
+        Log.d(TAG, "Content: " + downloadedFile);
+        Log.d(TAG, "MIME-Type:" + driveFile.getMimeType());
+
         byte buffer[] = new byte[1024];
         int length;
         while ((length = downloadedFile.read(buffer)) > 0) {

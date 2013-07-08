@@ -17,6 +17,11 @@ import android.support.v4.widget.DrawerLayout;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
+import co.schmitt.android.keyringdroid.python.InstallAsyncTask;
+import co.schmitt.android.keyringdroid.python.PythonInstaller;
+import com.android.python27.BackgroundScriptService;
+import com.android.python27.ScriptService;
+import com.android.python27.config.GlobalConstants;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.services.drive.DriveScopes;
 
@@ -78,6 +83,22 @@ public class MainActivity extends Activity implements Observer {
         populateAccountSpinner();
         populateKeyringList();
         registerObservers();
+
+        // install needed ?
+        if (PythonInstaller.isInstallNeeded(this)) {
+            setContentView(R.layout.install);
+            new InstallAsyncTask(this).execute();
+        } else {
+            runScriptService();
+        }
+    }
+
+    private void runScriptService() {
+        if (GlobalConstants.IS_FOREGROUND_SERVICE) {
+            startService(new Intent(this, ScriptService.class));
+        } else {
+            startService(new Intent(this, BackgroundScriptService.class));
+        }
     }
 
     @Override

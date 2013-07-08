@@ -24,7 +24,6 @@ package com.android.python27.support;
 
 import android.os.Environment;
 import android.util.Log;
-import com.android.python27.config.GlobalConstants;
 import com.googlecode.android_scripting.FileUtils;
 
 import java.io.*;
@@ -32,6 +31,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class Utils {
+    private static final String TAG = "python27.Utils";
+
     public static String getFileExtension(String sFileName) {
         int dotIndex = sFileName.lastIndexOf('.');
         if (dotIndex == -1) {
@@ -73,12 +74,12 @@ public class Utils {
                         try {
                             boolean b = deleteDir(file2);
                             if (!b) {
-                                Log.e(GlobalConstants.LOG_TAG, "Unzip failed to delete " + dest + zipEntryName);
+                                Log.e(TAG, "Unzip failed to delete " + dest + zipEntryName);
                             } else {
-                                Log.d(GlobalConstants.LOG_TAG, "Unzip deleted " + dest + zipEntryName);
+                                Log.d(TAG, "Unzip deleted " + dest + zipEntryName);
                             }
                         } catch (Exception e) {
-                            Log.e(GlobalConstants.LOG_TAG, "Unzip failed to delete " + dest + zipEntryName, e);
+                            Log.e(TAG, "Unzip failed to delete " + dest + zipEntryName, e);
                         }
                     }
                 }
@@ -119,16 +120,16 @@ public class Utils {
                     FileUtils.chmod(file, 0755);
                 }
 
-                Log.d(GlobalConstants.LOG_TAG, "Unzip extracted " + dest + zipEntryName);
+                Log.d(TAG, "Unzip extracted " + dest + zipEntryName);
             }
 
             zipInputStream.close();
 
         } catch (FileNotFoundException e) {
-            Log.e(GlobalConstants.LOG_TAG, "Unzip error, file not found", e);
+            Log.e(TAG, "Unzip error, file not found", e);
             succeed = false;
         } catch (Exception e) {
-            Log.e(GlobalConstants.LOG_TAG, "Unzip error: ", e);
+            Log.e(TAG, "Unzip error: ", e);
             succeed = false;
         }
 
@@ -153,7 +154,7 @@ public class Utils {
             return dir.delete();
 
         } catch (Exception e) {
-            Log.e(GlobalConstants.LOG_TAG, "Failed to delete " + dir + " : " + e);
+            Log.e(TAG, "Failed to delete " + dir + " : " + e);
             return false;
         }
     }
@@ -166,17 +167,17 @@ public class Utils {
                 try {
                     file.mkdirs();
 
-                    Log.d(GlobalConstants.LOG_TAG, "createDirectoryOnExternalStorage created " + Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + path);
+                    Log.d(TAG, "createDirectoryOnExternalStorage created " + Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + path);
                 } catch (Exception e) {
-                    Log.e(GlobalConstants.LOG_TAG, "createDirectoryOnExternalStorage error: ", e);
+                    Log.e(TAG, "createDirectoryOnExternalStorage error: ", e);
                 }
             }
             //}
             //else {
-            //    Log.e(GlobalConstants.LOG_TAG,"createDirectoryOnExternalStorage error: " + "External storage is not mounted");		
+            //    Log.e(TAG,"createDirectoryOnExternalStorage error: " + "External storage is not mounted");		
             //}
         } catch (Exception e) {
-            Log.e(GlobalConstants.LOG_TAG, "createDirectoryOnExternalStorage error: " + e);
+            Log.e(TAG, "createDirectoryOnExternalStorage error: " + e);
         }
 
     }

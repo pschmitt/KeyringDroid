@@ -1,7 +1,6 @@
 package com.googlecode.android_scripting.facade;
 
 import android.util.Log;
-import com.android.python27.config.GlobalConstants;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcMinSdk;
@@ -11,6 +10,9 @@ import java.util.concurrent.CountDownLatch;
 
 @RpcMinSdk(4)
 public class ACustomFacade extends RpcReceiver {
+
+    // For logging and debugging
+    private static final String TAG = "Python-AcutomFacade";
 
     private final CountDownLatch mOnInitLock;
 
@@ -31,6 +33,6 @@ public class ACustomFacade extends RpcReceiver {
     @Rpc(description = "Print hello in logcat")
     public void aHelloFonction(@RpcParameter(name = "message") String message) throws InterruptedException {
         mOnInitLock.await();
-        Log.i(GlobalConstants.LOG_TAG, "ACustomFacade received: " + message);
+        Log.i(TAG, "ACustomFacade received: " + message);
     }
 }

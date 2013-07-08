@@ -23,7 +23,6 @@
 package com.android.python27.process;
 
 import android.util.Log;
-import com.android.python27.config.GlobalConstants;
 import com.googlecode.android_scripting.Exec;
 import com.trilead.ssh2.StreamGobbler;
 
@@ -36,6 +35,8 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Process {
+    private static final String TAG = "python27.Process";
+
     private static final int DEFAULT_BUFFER_SIZE = 8192;
 
     private final List<String> mArguments;
@@ -120,8 +121,7 @@ public class Process {
         }
 
         String binaryPath = mBinary.getAbsolutePath();
-        Log.i(GlobalConstants.LOG_TAG, "Executing " + binaryPath + " with arguments " + mArguments + " and with environment "
-                + mEnvironment.toString());
+        Log.i(TAG, "Executing " + binaryPath + " with arguments " + mArguments + " and with environment " + mEnvironment.toString());
 
         int[] pid = new int[1];
         String[] argumentsArray = mArguments.toArray(new String[mArguments.size()]);
@@ -138,16 +138,16 @@ public class Process {
                 returnValue = Exec.waitFor(mPid.get());
                 mEndTime = System.currentTimeMillis();
                 int pid = mPid.getAndSet(PID_INIT_VALUE);
-                Log.d(GlobalConstants.LOG_TAG, "Process " + pid + " exited with result code " + returnValue + ".");
+                Log.d(TAG, "Process " + pid + " exited with result code " + returnValue + ".");
                 try {
                     mIn.close();
                 } catch (IOException e) {
-                    Log.e(GlobalConstants.LOG_TAG, e.getMessage());
+                    Log.e(TAG, e.getMessage());
                 }
                 try {
                     mOut.close();
                 } catch (IOException e) {
-                    Log.e(GlobalConstants.LOG_TAG, e.getMessage());
+                    Log.e(TAG, e.getMessage());
                 }
                 if (shutdownHook != null) {
                     shutdownHook.run();
@@ -168,7 +168,7 @@ public class Process {
     public void kill() {
         if (isAlive()) {
             android.os.Process.killProcess(mPid.get());
-            Log.d(GlobalConstants.LOG_TAG, "Killed process " + mPid);
+            Log.d(TAG, "Killed process " + mPid);
         }
     }
 

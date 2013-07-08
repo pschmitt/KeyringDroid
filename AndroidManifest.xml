@@ -26,6 +26,7 @@
                 android:exported="false">
             <grant-uri-permission android:pathPattern=".*"/>
         </provider>
+
         <service
                 android:name=".drive.DriveSyncService"
                 android:exported="true">
@@ -35,6 +36,12 @@
             <meta-data
                     android:name="android.content.SyncAdapter"
                     android:resource="@xml/syncadapter"/>
+        </service>
+
+        <service android:name="com.android.python27.ScriptService">
+            <intent-filter>
+                <action android:name="com.android.python27.ScriptService"/>
+            </intent-filter>
         </service>
 
         <activity
