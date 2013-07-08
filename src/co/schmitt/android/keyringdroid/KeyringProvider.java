@@ -60,9 +60,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
     /**
      * Standard projection for the interesting columns of a normal keyring.
      */
-    private static final String[] READ_NOTE_PROJECTION = new String[]{
-            Keyring.Keyrings.COLUMN_NAME_FILENAME,
-            Keyring.Keyrings.COLUMN_NAME_TITLE};
+    private static final String[] READ_NOTE_PROJECTION = new String[]{KeyringVault.Keyrings.COLUMN_NAME_FILENAME, KeyringVault.Keyrings.COLUMN_NAME_TITLE};
     private static final int READ_NOTE_NOTE_INDEX = 0;
     private static final int READ_NOTE_TITLE_INDEX = 1;
 
@@ -101,15 +99,15 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
 
         // Add a pattern that routes URIs terminated with "keyrings" to a KEYRINGS
         // operation
-        sUriMatcher.addURI(Keyring.AUTHORITY, "*/keyrings", KEYRINGS);
+        sUriMatcher.addURI(KeyringVault.AUTHORITY, "*/keyrings", KEYRINGS);
 
         // Add a pattern that routes URIs terminated with "keyrings" plus an integer
         // to a keyring ID operation
-        sUriMatcher.addURI(Keyring.AUTHORITY, "*/keyring/#", KEYRING_ID);
+        sUriMatcher.addURI(KeyringVault.AUTHORITY, "*/keyring/#", KEYRING_ID);
 
         // Add a pattern that routes URIs terminated with "files" plus an ID
         // to a file ID operation
-        sUriMatcher.addURI(Keyring.AUTHORITY, "*/files/*", FILE_ID);
+        sUriMatcher.addURI(KeyringVault.AUTHORITY, "*/files/*", FILE_ID);
 
     /*
      * Creates and initializes a projection map that returns all columns
@@ -120,25 +118,23 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
         sNotesProjectionMap = new HashMap<String, String>();
 
         // Maps the string "_ID" to the column name "_ID"
-        sNotesProjectionMap.put(Keyring.Keyrings._ID, Keyring.Keyrings._ID);
+        sNotesProjectionMap.put(KeyringVault.Keyrings._ID, KeyringVault.Keyrings._ID);
 
         // Maps "title" to "title"
-        sNotesProjectionMap.put(Keyring.Keyrings.COLUMN_NAME_TITLE, Keyring.Keyrings.COLUMN_NAME_TITLE);
+        sNotesProjectionMap.put(KeyringVault.Keyrings.COLUMN_NAME_TITLE, KeyringVault.Keyrings.COLUMN_NAME_TITLE);
 
         // Maps "keyring" to "keyring"
-        sNotesProjectionMap.put(Keyring.Keyrings.COLUMN_NAME_FILENAME, Keyring.Keyrings.COLUMN_NAME_FILENAME);
+        sNotesProjectionMap.put(KeyringVault.Keyrings.COLUMN_NAME_FILENAME, KeyringVault.Keyrings.COLUMN_NAME_FILENAME);
 
         // Maps "created" to "created"
-        sNotesProjectionMap.put(Keyring.Keyrings.COLUMN_NAME_CREATE_DATE,
-                Keyring.Keyrings.COLUMN_NAME_CREATE_DATE);
+        sNotesProjectionMap.put(KeyringVault.Keyrings.COLUMN_NAME_CREATE_DATE, KeyringVault.Keyrings.COLUMN_NAME_CREATE_DATE);
 
         // Maps "modified" to "modified"
-        sNotesProjectionMap.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE,
-                Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE);
+        sNotesProjectionMap.put(KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE);
 
-        sNotesProjectionMap.put(Keyring.Keyrings.COLUMN_NAME_ACCOUNT, Keyring.Keyrings.COLUMN_NAME_ACCOUNT);
-        sNotesProjectionMap.put(Keyring.Keyrings.COLUMN_NAME_FILE_ID, Keyring.Keyrings.COLUMN_NAME_FILE_ID);
-        sNotesProjectionMap.put(Keyring.Keyrings.COLUMN_NAME_DELETED, Keyring.Keyrings.COLUMN_NAME_DELETED);
+        sNotesProjectionMap.put(KeyringVault.Keyrings.COLUMN_NAME_ACCOUNT, KeyringVault.Keyrings.COLUMN_NAME_ACCOUNT);
+        sNotesProjectionMap.put(KeyringVault.Keyrings.COLUMN_NAME_FILE_ID, KeyringVault.Keyrings.COLUMN_NAME_FILE_ID);
+        sNotesProjectionMap.put(KeyringVault.Keyrings.COLUMN_NAME_DELETED, KeyringVault.Keyrings.COLUMN_NAME_DELETED);
     }
 
     /**
@@ -154,18 +150,13 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
 
         /**
          * Creates the underlying database with table name and column names taken
-         * from the Keyring class.
+         * from the KeyringVault class.
          */
         @Override
         public void onCreate(SQLiteDatabase db) {
             // TODO Remove Title or Filename (dupplicates) + Make Title/Filename unique !
 
-            db.execSQL("CREATE TABLE " + Keyring.Keyrings.TABLE_NAME + " (" + Keyring.Keyrings._ID
-                    + " INTEGER PRIMARY KEY," + Keyring.Keyrings.COLUMN_NAME_TITLE + " TEXT,"
-                    + Keyring.Keyrings.COLUMN_NAME_FILENAME + " TEXT," + Keyring.Keyrings.COLUMN_NAME_CREATE_DATE
-                    + " INTEGER," + Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE + " INTEGER,"
-                    + Keyring.Keyrings.COLUMN_NAME_FILE_ID + " TEXT," + Keyring.Keyrings.COLUMN_NAME_ACCOUNT
-                    + " TEXT," + Keyring.Keyrings.COLUMN_NAME_DELETED + " BOOL DEFAULT FALSE" + ");");
+            db.execSQL("CREATE TABLE " + KeyringVault.Keyrings.TABLE_NAME + " (" + KeyringVault.Keyrings._ID + " INTEGER PRIMARY KEY," + KeyringVault.Keyrings.COLUMN_NAME_TITLE + " TEXT," + KeyringVault.Keyrings.COLUMN_NAME_FILENAME + " TEXT," + KeyringVault.Keyrings.COLUMN_NAME_CREATE_DATE + " INTEGER," + KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE + " INTEGER," + KeyringVault.Keyrings.COLUMN_NAME_FILE_ID + " TEXT," + KeyringVault.Keyrings.COLUMN_NAME_ACCOUNT + " TEXT," + KeyringVault.Keyrings.COLUMN_NAME_DELETED + " BOOL DEFAULT FALSE" + ");");
         }
 
         /**
@@ -222,12 +213,10 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
 
         // Constructs a new query builder and sets its table name
         SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
-        qb.setTables(Keyring.Keyrings.TABLE_NAME);
+        qb.setTables(KeyringVault.Keyrings.TABLE_NAME);
 
         // Only retrieve keyrings for the specified account.
-        String where =
-                Keyring.Keyrings.COLUMN_NAME_ACCOUNT + "=" + "\""
-                        + uri.getPathSegments().get(Keyring.Keyrings.KEYRING_ACCOUNT_PATH_POSITION) + "\"";
+        String where = KeyringVault.Keyrings.COLUMN_NAME_ACCOUNT + "=" + "\"" + uri.getPathSegments().get(KeyringVault.Keyrings.KEYRING_ACCOUNT_PATH_POSITION) + "\"";
 
         /**
          * Choose the projection and adjust the "where" clause based on URI
@@ -246,10 +235,10 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
        */
             case KEYRING_ID:
                 qb.setProjectionMap(sNotesProjectionMap);
-                where += "AND " + Keyring.Keyrings._ID + // the name of the ID column
+                where += "AND " + KeyringVault.Keyrings._ID + // the name of the ID column
                         "=" +
                         // the position of the keyring ID itself in the incoming URI
-                        uri.getPathSegments().get(Keyring.Keyrings.NOTE_FILE_ID_PATH_POSITION);
+                        uri.getPathSegments().get(KeyringVault.Keyrings.NOTE_FILE_ID_PATH_POSITION);
                 break;
 
       /*
@@ -259,10 +248,10 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
        */
             case FILE_ID:
                 qb.setProjectionMap(sNotesProjectionMap);
-                where += "AND " + Keyring.Keyrings.COLUMN_NAME_FILE_ID + // the name of the ID column
+                where += "AND " + KeyringVault.Keyrings.COLUMN_NAME_FILE_ID + // the name of the ID column
                         " = " +
                         // the position of the keyring ID itself in the incoming URI
-                        "\"" + uri.getPathSegments().get(Keyring.Keyrings.NOTE_FILE_ID_PATH_POSITION) + "\"";
+                        "\"" + uri.getPathSegments().get(KeyringVault.Keyrings.NOTE_FILE_ID_PATH_POSITION) + "\"";
                 break;
 
             default:
@@ -276,7 +265,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
         String orderBy;
         // If no sort order is specified, uses the default
         if (TextUtils.isEmpty(sortOrder)) {
-            orderBy = Keyring.Keyrings.DEFAULT_SORT_ORDER;
+            orderBy = KeyringVault.Keyrings.DEFAULT_SORT_ORDER;
         } else {
             // otherwise, uses the incoming sort order
             orderBy = sortOrder;
@@ -327,11 +316,11 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
             // If the pattern is for keyrings or live folders, returns the general content
             // type.
             case KEYRINGS:
-                return Keyring.Keyrings.CONTENT_TYPE;
+                return KeyringVault.Keyrings.CONTENT_TYPE;
 
             // If the pattern is for keyring IDs, returns the keyring ID content type.
             case KEYRING_ID:
-                return Keyring.Keyrings.CONTENT_ITEM_TYPE;
+                return KeyringVault.Keyrings.CONTENT_ITEM_TYPE;
 
             // If the URI pattern doesn't match any permitted patterns, throws an
             // exception.
@@ -515,46 +504,45 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
 
         // If the values map doesn't contain the creation date, sets the value to
         // the current time.
-        if (values.containsKey(Keyring.Keyrings.COLUMN_NAME_CREATE_DATE) == false) {
-            values.put(Keyring.Keyrings.COLUMN_NAME_CREATE_DATE, now);
+        if (values.containsKey(KeyringVault.Keyrings.COLUMN_NAME_CREATE_DATE) == false) {
+            values.put(KeyringVault.Keyrings.COLUMN_NAME_CREATE_DATE, now);
         }
 
         // If the values map doesn't contain the modification date, sets the value
         // to the current
         // time.
-        if (values.containsKey(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE) == false) {
-            values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, now);
+        if (values.containsKey(KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE) == false) {
+            values.put(KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, now);
         }
 
         // If the values map doesn't contain a title, sets the value to the default
         // title.
-        if (values.containsKey(Keyring.Keyrings.COLUMN_NAME_TITLE) == false) {
+        if (values.containsKey(KeyringVault.Keyrings.COLUMN_NAME_TITLE) == false) {
             Resources r = Resources.getSystem();
-            values.put(Keyring.Keyrings.COLUMN_NAME_TITLE, r.getString(android.R.string.untitled));
+            values.put(KeyringVault.Keyrings.COLUMN_NAME_TITLE, r.getString(android.R.string.untitled));
         }
 
         // If the values map doesn't contain keyring text, sets the value to an empty
         // string.
-        if (values.containsKey(Keyring.Keyrings.COLUMN_NAME_FILENAME) == false) {
-            values.put(Keyring.Keyrings.COLUMN_NAME_FILENAME, "");
+        if (values.containsKey(KeyringVault.Keyrings.COLUMN_NAME_FILENAME) == false) {
+            values.put(KeyringVault.Keyrings.COLUMN_NAME_FILENAME, "");
         }
 
         // If the values map doesn't contain keyring text, sets the value to an empty
         // string.
-        if (values.containsKey(Keyring.Keyrings.COLUMN_NAME_DELETED) == false) {
-            values.put(Keyring.Keyrings.COLUMN_NAME_DELETED, 0);
+        if (values.containsKey(KeyringVault.Keyrings.COLUMN_NAME_DELETED) == false) {
+            values.put(KeyringVault.Keyrings.COLUMN_NAME_DELETED, 0);
         }
 
-        values.put(Keyring.Keyrings.COLUMN_NAME_ACCOUNT,
-                uri.getPathSegments().get(Keyring.Keyrings.KEYRING_ACCOUNT_PATH_POSITION));
+        values.put(KeyringVault.Keyrings.COLUMN_NAME_ACCOUNT, uri.getPathSegments().get(KeyringVault.Keyrings.KEYRING_ACCOUNT_PATH_POSITION));
 
         // Opens the database object in "write" mode.
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
 
         // Performs the insert and returns the ID of the new keyring.
-        long rowId = db.insert(Keyring.Keyrings.TABLE_NAME, // The table to insert
+        long rowId = db.insert(KeyringVault.Keyrings.TABLE_NAME, // The table to insert
                 // into.
-                Keyring.Keyrings.COLUMN_NAME_FILENAME, // A hack, SQLite sets this column value
+                KeyringVault.Keyrings.COLUMN_NAME_FILENAME, // A hack, SQLite sets this column value
                 // to null
                 // if values is empty.
                 values // A map of column names, and the values to insert
@@ -598,9 +586,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
     public int delete(Uri uri, String where, String[] whereArgs) {
         // Opens the database object in "write" mode.
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
-        String finalWhere =
-                Keyring.Keyrings.COLUMN_NAME_ACCOUNT + " = " + "\""
-                        + uri.getPathSegments().get(Keyring.Keyrings.KEYRING_ACCOUNT_PATH_POSITION) + "\"";
+        String finalWhere = KeyringVault.Keyrings.COLUMN_NAME_ACCOUNT + " = " + "\"" + uri.getPathSegments().get(KeyringVault.Keyrings.KEYRING_ACCOUNT_PATH_POSITION) + "\"";
 
         int count;
 
@@ -619,9 +605,9 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
         /*
          * Starts a final WHERE clause by restricting it to the desired keyring ID.
          */
-                finalWhere = finalWhere + " AND " + Keyring.Keyrings._ID + // The ID column name
+                finalWhere = finalWhere + " AND " + KeyringVault.Keyrings._ID + // The ID column name
                         " = " + // test for equality
-                        uri.getPathSegments().get(Keyring.Keyrings.NOTE_FILE_ID_PATH_POSITION); // the incoming keyring ID
+                        uri.getPathSegments().get(KeyringVault.Keyrings.NOTE_FILE_ID_PATH_POSITION); // the incoming keyring ID
 
                 break;
 
@@ -632,9 +618,9 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
         /*
          * Starts a final WHERE clause by restricting it to the desired keyring ID.
          */
-                finalWhere = finalWhere + " AND " + Keyring.Keyrings.COLUMN_NAME_FILE_ID + // The ID column name
+                finalWhere = finalWhere + " AND " + KeyringVault.Keyrings.COLUMN_NAME_FILE_ID + // The ID column name
                         " = " + // test for equality
-                        "\"" + uri.getPathSegments().get(Keyring.Keyrings.NOTE_FILE_ID_PATH_POSITION) + "\"";
+                        "\"" + uri.getPathSegments().get(KeyringVault.Keyrings.NOTE_FILE_ID_PATH_POSITION) + "\"";
 
                 break;
 
@@ -649,7 +635,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
             finalWhere = finalWhere + " AND " + where;
         }
         // Performs the delete.
-        count = db.delete(Keyring.Keyrings.TABLE_NAME, // The database table name.
+        count = db.delete(KeyringVault.Keyrings.TABLE_NAME, // The database table name.
                 finalWhere, // The final WHERE clause
                 whereArgs // The incoming where clause values.
         );
@@ -693,9 +679,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
         // Opens the database object in "write" mode.
         SQLiteDatabase db = mOpenHelper.getWritableDatabase();
         int count;
-        String finalWhere =
-                Keyring.Keyrings.COLUMN_NAME_ACCOUNT + " = " + "\""
-                        + uri.getPathSegments().get(Keyring.Keyrings.KEYRING_ACCOUNT_PATH_POSITION) + "\"";
+        String finalWhere = KeyringVault.Keyrings.COLUMN_NAME_ACCOUNT + " = " + "\"" + uri.getPathSegments().get(KeyringVault.Keyrings.KEYRING_ACCOUNT_PATH_POSITION) + "\"";
 
         // Does the update based on the incoming URI pattern
         switch (sUriMatcher.match(uri)) {
@@ -713,10 +697,10 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
          * Starts creating the final WHERE clause by restricting it to the
          * incoming keyring ID.
          */
-                finalWhere = finalWhere + " AND " + Keyring.Keyrings._ID + // The ID column name
+                finalWhere = finalWhere + " AND " + KeyringVault.Keyrings._ID + // The ID column name
                         " = " + // test for equality
                         uri.getPathSegments(). // the incoming keyring ID
-                                get(Keyring.Keyrings.NOTE_FILE_ID_PATH_POSITION);
+                                get(KeyringVault.Keyrings.NOTE_FILE_ID_PATH_POSITION);
 
                 break;
 
@@ -728,9 +712,9 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
          * Starts creating the final WHERE clause by restricting it to the
          * incoming keyring ID.
          */
-                finalWhere = finalWhere + " AND " + Keyring.Keyrings.COLUMN_NAME_FILE_ID + // The ID column name
+                finalWhere = finalWhere + " AND " + KeyringVault.Keyrings.COLUMN_NAME_FILE_ID + // The ID column name
                         " = " + // test for equality
-                        "\"" + uri.getPathSegments().get(Keyring.Keyrings.NOTE_FILE_ID_PATH_POSITION) + "\"";
+                        "\"" + uri.getPathSegments().get(KeyringVault.Keyrings.NOTE_FILE_ID_PATH_POSITION) + "\"";
 
                 break;
 
@@ -745,7 +729,7 @@ public class KeyringProvider extends ContentProvider implements PipeDataWriter<C
             finalWhere = finalWhere + " AND " + where;
         }
         // Does the update and returns the number of rows updated.
-        count = db.update(Keyring.Keyrings.TABLE_NAME, // The database table name.
+        count = db.update(KeyringVault.Keyrings.TABLE_NAME, // The database table name.
                 values, // A map of column names and new values to use.
                 finalWhere, // The final WHERE clause to use
                 // placeholders for whereArgs

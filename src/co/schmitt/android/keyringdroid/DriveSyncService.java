@@ -5,6 +5,7 @@ package co.schmitt.android.keyringdroid;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import co.schmitt.android.keyringdroid.drive.DriveSyncAdapter;
 
 /**
  * Created with IntelliJ IDEA.

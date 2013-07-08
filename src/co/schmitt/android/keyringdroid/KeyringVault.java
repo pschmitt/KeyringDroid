@@ -26,11 +26,11 @@ import android.provider.BaseColumns;
  * class that contains constants defining column names and URIs. A well-written
  * client depends only on the constants in the contract.
  */
-public final class Keyring {
+public final class KeyringVault {
     public static final String AUTHORITY = "co.schmitt.android.provider.KeyringDroid";
 
     // This class cannot be instantiated
-    private Keyring() {
+    private KeyringVault() {
     }
 
     /**
@@ -108,8 +108,7 @@ public final class Keyring {
          * The content URI match pattern for a single keyring, specified by its ID. Use
          * this to match incoming URIs or to construct an Intent.
          */
-        public static final Uri CONTENT_ID_URI_PATTERN = Uri.parse(SCHEME + AUTHORITY + PATH_KEYRING_ID
-                + "/#");
+        public static final Uri CONTENT_ID_URI_PATTERN = Uri.parse(SCHEME + AUTHORITY + PATH_KEYRING_ID + "/#");
 
         /**
          * The content Uri pattern for a keyrings listing for live folders

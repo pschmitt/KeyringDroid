@@ -38,17 +38,13 @@ public class DriveSyncer {
      */
     private static final String TAG = "DriveSyncAdapter";
 
-    private static final String OAUTH_SCOPE_PREFIX = "oauth2:";
     private static final String MIME_BINARY = "application/octet-stream";
     private static final String KEYRING_EXTENSION = "keyring";
 
     /**
      * Projection used for querying the database.
      */
-    private static final String[] PROJECTION = new String[]{Keyring.Keyrings._ID,
-            Keyring.Keyrings.COLUMN_NAME_TITLE, Keyring.Keyrings.COLUMN_NAME_FILENAME,
-            Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, Keyring.Keyrings.COLUMN_NAME_FILE_ID,
-            Keyring.Keyrings.COLUMN_NAME_DELETED};
+    private static final String[] PROJECTION = new String[]{KeyringVault.Keyrings._ID, KeyringVault.Keyrings.COLUMN_NAME_TITLE, KeyringVault.Keyrings.COLUMN_NAME_FILENAME, KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, KeyringVault.Keyrings.COLUMN_NAME_FILE_ID, KeyringVault.Keyrings.COLUMN_NAME_DELETED};
 
     /**
      * The index of the projection columns
@@ -95,11 +91,11 @@ public class DriveSyncer {
     }
 
     /**
-     * Retrieve the URI of Keyring for a given account
+     * Retrieve the URI of KeyringVault for a given account
      *
      * @param accountName The owner's account name
      * @param keyringId   The ID of the keyring item
-     * @return The URI of the Keyring
+     * @return The URI of the KeyringVault
      */
     private static Uri getKeyringUri(String accountName, String keyringId) {
         return Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyring/" + keyringId);
@@ -209,6 +205,8 @@ public class DriveSyncer {
 
     /**
      * Perform a synchronization for the current account.
+     *
+     * TODO Import new Keyrings from Drive
      */
     public void performSync() {
         if (mService == null) {
@@ -225,9 +223,7 @@ public class DriveSyncer {
             Uri uri = getKeyringsUri(mAccount.name);
 
             try {
-                Cursor cursor =
-                        mProvider.query(uri, PROJECTION, Keyring.Keyrings.COLUMN_NAME_FILE_ID + " IS NOT NULL",
-                                null, null);
+                Cursor cursor = mProvider.query(uri, PROJECTION, KeyringVault.Keyrings.COLUMN_NAME_FILE_ID + " IS NOT NULL", null, null);
                 Log.d(TAG, "Got local files: " + cursor.getCount());
                 for (boolean more = cursor.moveToFirst(); more; more = cursor.moveToNext()) {
                     // Merge.
@@ -275,7 +271,6 @@ public class DriveSyncer {
         try {
             // Get the largest change Id first to avoid race conditions.
             About about = mService.about().get().execute();
-            setLargestChangeId(about.getLargestChangeId() + 1);
             Drive.Files.List request =
                     mService.files().list()
                             .setQ("'" + about.getRootFolderId() + "' in parents " +
@@ -292,7 +287,7 @@ public class DriveSyncer {
                 setKeyringsFolderId(files.getItems().get(0).getId());
                 Log.i(TAG, "Found matching folder : " + mKeyringsFolderId);
                 // TODO filter by fileExtension='keyring' instead of searching for matching files afterwards
-                request = mService.files().list().setQ("'" + mKeyringsFolderId + "' in parents"); //and trashed=false"); //and fileExtension='keyring'");
+                request = mService.files().list().setQ("'" + mKeyringsFolderId + "' in parents and mimeType='' and trashed=false"); //and fileExtension='keyring'");
                 Log.d(TAG, "QUERY: " + mService.files().list().getQ());
                 files = request.execute();
                 if (files.getItems().size() > 0) {
@@ -303,6 +298,7 @@ public class DriveSyncer {
                         }
                     }
                     insertNewDriveFiles(keyringFiles);
+                    setLargestChangeId(about.getLargestChangeId());
                 }
             }
         } catch (IOException e) {
@@ -318,6 +314,8 @@ public class DriveSyncer {
      * md5 checksum of the file is used to check whether or not the file's content
      * should be sync'ed.
      *
+     * TODO Delete keyrings that were deleted from drive + Search for duplicates
+     *
      * @param localFileUri    Local file URI to save local changes against.
      * @param localFileCursor Local file cursor to retrieve data from.
      * @param driveFile       Google Drive file.
@@ -330,7 +328,7 @@ public class DriveSyncer {
 
         Log.d(TAG, "Modification dates: " + localFileModificationDate + " - "
                 + driveFile.getModifiedDate().getValue());
-
+        Log.d(TAG, "Processing drive file " + driveFile.getTitle());
         if (localFileModificationDate > driveFile.getModifiedDate().getValue()) {
             // Update remote file (Drive)
             try {
@@ -356,8 +354,7 @@ public class DriveSyncer {
                     }
 
                     ContentValues values = new ContentValues();
-                    values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, updatedFile.getModifiedDate()
-                            .getValue());
+                    values.put(KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, updatedFile.getModifiedDate().getValue());
                     mProvider.update(localFileUri, values, null, null);
                 }
             } catch (IOException e) {
@@ -386,9 +383,8 @@ public class DriveSyncer {
                         downloadDriveFile(driveFile);
                     }
                     ContentValues values = new ContentValues();
-                    values.put(Keyring.Keyrings.COLUMN_NAME_TITLE, driveFile.getTitle());
-                    values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, driveFile.getModifiedDate()
-                            .getValue());
+                    values.put(KeyringVault.Keyrings.COLUMN_NAME_TITLE, driveFile.getTitle());
+                    values.put(KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, driveFile.getModifiedDate().getValue());
                     mProvider.update(localFileUri, values, null, null);
                 }
             } catch (IOException e) {
@@ -410,9 +406,7 @@ public class DriveSyncer {
         }
 
         try {
-            Cursor cursor =
-                    mProvider.query(uri, PROJECTION, Keyring.Keyrings.COLUMN_NAME_FILE_ID + " is NULL", null,
-                            null);
+            Cursor cursor = mProvider.query(uri, PROJECTION, KeyringVault.Keyrings.COLUMN_NAME_FILE_ID + " is NULL", null, null);
 
             Log.d(TAG, "Inserting new local files: " + cursor.getCount());
 
@@ -449,11 +443,9 @@ public class DriveSyncer {
 
                         // Update the local file to add the file ID.
                         ContentValues values = new ContentValues();
-                        values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, insertedFile
-                                .getModifiedDate().getValue());
-                        values.put(Keyring.Keyrings.COLUMN_NAME_CREATE_DATE, insertedFile.getCreatedDate()
-                                .getValue());
-                        values.put(Keyring.Keyrings.COLUMN_NAME_FILE_ID, insertedFile.getId());
+                        values.put(KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, insertedFile.getModifiedDate().getValue());
+                        values.put(KeyringVault.Keyrings.COLUMN_NAME_CREATE_DATE, insertedFile.getCreatedDate().getValue());
+                        values.put(KeyringVault.Keyrings.COLUMN_NAME_FILE_ID, insertedFile.getId());
 
                         mProvider.update(localFileUri, values, null, null);
                     }
@@ -477,12 +469,12 @@ public class DriveSyncer {
             String fileName = driveFile.getTitle();
             if (driveFile != null && fileName != null && fileName.endsWith(KEYRING_EXTENSION)) {
                 ContentValues values = new ContentValues();
-                values.put(Keyring.Keyrings.COLUMN_NAME_ACCOUNT, mAccount.name);
-                values.put(Keyring.Keyrings.COLUMN_NAME_FILE_ID, driveFile.getId());
-                values.put(Keyring.Keyrings.COLUMN_NAME_TITLE, driveFile.getTitle());
-                values.put(Keyring.Keyrings.COLUMN_NAME_FILENAME, driveFile.getTitle());
-                values.put(Keyring.Keyrings.COLUMN_NAME_CREATE_DATE, driveFile.getCreatedDate().getValue());
-                values.put(Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, driveFile.getModifiedDate().getValue());
+                values.put(KeyringVault.Keyrings.COLUMN_NAME_ACCOUNT, mAccount.name);
+                values.put(KeyringVault.Keyrings.COLUMN_NAME_FILE_ID, driveFile.getId());
+                values.put(KeyringVault.Keyrings.COLUMN_NAME_TITLE, driveFile.getTitle());
+                values.put(KeyringVault.Keyrings.COLUMN_NAME_FILENAME, driveFile.getTitle());
+                values.put(KeyringVault.Keyrings.COLUMN_NAME_CREATE_DATE, driveFile.getCreatedDate().getValue());
+                values.put(KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, driveFile.getModifiedDate().getValue());
 
                 try {
                     downloadDriveFile(driveFile);

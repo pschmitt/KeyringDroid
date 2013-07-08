@@ -17,35 +17,46 @@ import android.support.v4.widget.DrawerLayout;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
-import com.google.api.client.googleapis.extensions.android.accounts.GoogleAccountManager;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.services.drive.DriveScopes;
 
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Observable;
+import java.util.Observer;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements Observer {
 
     // For logging and debugging
     private static final String TAG = "MainActivity";
+
+    // Intent extras
+    public final static String EXTRA_KEYRING = "co.schmitt.android.keyringdroid.KEYRING";
+
+    // Provider URI
+    private String AUTHORITY = "co.schmitt.android.provider.KeyringDroid";
 
     // Keys for local broadcasts
     public static final String LB_REQUEST_ACCOUNT = "REQUEST_ACCOUNT";
     public static final String LB_AUTH_APP = "AUTH_APP";
     public static final String EXTRA_AUTH_APP_INTENT = "AUTH_APP_INTENT";
 
+    // Request codes
     private static final int AUTH_APP = 1;
     private static final int REQUEST_ACCOUNT_PICKER = 2;
     private static final int REQUEST_AUTHORIZATION = 3;
 
-    private GoogleAccountCredential credential;
-    private String[] mPlanetTitles;
     // UI Elements
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
     private Spinner mAccountSpinner;
     private ListView mDrawerList;
     private ListView mKeyringList;
+
+    // Model
+    private ArrayList<String> keyringList = new ArrayList<String>();
+    private GoogleAccountCredential mCredential;
+    private String[] mPlanetTitles;
 
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
         @Override
@@ -57,148 +68,29 @@ public class MainActivity extends Activity {
             }
         }
     };
-    private String AUTHORITY = "co.schmitt.android.provider.KeyringDroid";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main);
-
-        // Drawer initialization
-        mAccountSpinner = (Spinner) findViewById(R.id.account_spinner);
-        mPlanetTitles = getResources().getStringArray(R.array.planets_array);
-        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-        mDrawerToggle = new ActionBarDrawerToggle(
-                this,                  /* host Activity */
-                mDrawerLayout,         /* DrawerLayout object */
-                R.drawable.ic_drawer,  /* nav drawer icon to replace 'Up' caret */
-                R.string.drawer_open,  /* "open drawer" description */
-                R.string.drawer_close  /* "close drawer" description */
-        ) {
-            /** Called when a drawer has settled in a completely closed state. */
-            public void onDrawerClosed(View view) {
-                getActionBar().setTitle(getString(R.string.app_name));
-            }
-
-            /** Called when a drawer has settled in a completely open state. */
-            public void onDrawerOpened(View drawerView) {
-                getActionBar().setTitle("Drawer open");
-            }
-        };
-        // Populate account spinner
-        AccountManager accMgr = AccountManager.get(this);
-        Account[] accountList = accMgr.getAccountsByType("com.google");
-        AccountAdapter accountAdapter = new AccountAdapter(this, R.layout.account_spinner_item, R.id.account_name, R.id.account_picture, accountList);
-        mAccountSpinner.setAdapter(accountAdapter);
-        mAccountSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                setSelectedAccountName(((Account) parent.getItemAtPosition(position)).name);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
-        mDrawerList = (ListView) findViewById(R.id.left_drawer);
-        // Set the adapter for the list view
-        mDrawerList.setAdapter(new ArrayAdapter<String>(this,
-                R.layout.drawer_list_item, mPlanetTitles)
-        );
-        // Set the list's click listener
-        mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
-
-        // Set the drawer toggle as the DrawerListener
-        mDrawerLayout.setDrawerListener(mDrawerToggle);
-
-        getActionBar().setDisplayHomeAsUpEnabled(true);
-        getActionBar().setHomeButtonEnabled(true);
-
-        ArrayList<String> scopes = new ArrayList<String>();
-        scopes.add(DriveScopes.DRIVE);
-        credential = GoogleAccountCredential.usingOAuth2(this, scopes);
-        String accountName = getSelectedAccountName();
-        if (accountName != null) {
-            credential.setSelectedAccountName(accountName);
-        } else {
-            startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
-        }
-
-        // Populate keyring list
-        String[] PROJECTION = new String[]{Keyring.Keyrings._ID,
-                Keyring.Keyrings.COLUMN_NAME_TITLE, Keyring.Keyrings.COLUMN_NAME_FILENAME,
-                Keyring.Keyrings.COLUMN_NAME_MODIFICATION_DATE, Keyring.Keyrings.COLUMN_NAME_FILE_ID,
-                Keyring.Keyrings.COLUMN_NAME_DELETED};
-        mKeyringList = (ListView) findViewById(R.id.keyring_list);
-        Uri uri = Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + accountName + "/keyrings/");
-        Cursor cursor =
-                getContentResolver().query(uri, PROJECTION, Keyring.Keyrings.COLUMN_NAME_FILE_ID + " IS NOT NULL",
-                        null, null);
-        Log.d(TAG, "Got local files: " + cursor.getCount());
-        ArrayList<String> keyringArray = new ArrayList<String>();
-        for (boolean more = cursor.moveToFirst(); more; more = cursor.moveToNext()) {
-            keyringArray.add(cursor.getString(2));
-        }
-        ArrayAdapter<String> keyrings = new ArrayAdapter<String>(getApplicationContext(), R.layout.keyring_list_item, keyringArray);
-        mKeyringList.setAdapter(keyrings);
-
-        // TEST
-//        ImageView profilePic = (ImageView) findViewById(R.id.profilePic);
-//        Cursor c = getContentResolver().query(ContactsContract.Profile.CONTENT_URI, null, null, null, null);
-//        int count = c.getCount();
-//        String[] columnNames = c.getColumnNames();
-//        String photoUri = c.getString(c.getColumnIndex("photo_thumb_uri"));
-//        Log.d(TAG, "Photo URI: " + photoUri);
-//        boolean b = c.moveToFirst();
-//        int position = c.getPosition();
-//        if (count == 1 && position == 0) {
-//            for (int j = 0; j < columnNames.length; j++) {
-//                String columnName = columnNames[j];
-//                String columnValue = c.getString(c.getColumnIndex(columnName));
-//                Log.d(TAG, "Namme: " + columnName);
-//                Log.d(TAG, "Value: " + columnValue);
-////                ...
-//                // consume the values here
-//            }
-//        }
-//        c.close();
+        setContentView(R.layout.main_activity);
+        // Initialize the UI
+        setupNavigationDrawer();
+        populateAccountSpinner();
+        populateKeyringList();
+        registerObservers();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
-                new IntentFilter(LB_REQUEST_ACCOUNT));
-        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
-                new IntentFilter(LB_AUTH_APP));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter(LB_REQUEST_ACCOUNT));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, new IntentFilter(LB_AUTH_APP));
     }
 
     @Override
     protected void onPause() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
         super.onPause();
-    }
-
-    /**
-     * Retrieve the currently selected account name from SharedPreferences
-     *
-     * @return The currently selected account
-     */
-    private String getSelectedAccountName() {
-        String accountNameKey = getString(R.string.prefs_account_name);
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        return prefs.getString(accountNameKey, null);
-    }
-
-    /**
-     * Set the currently selected account name and save it in SharedPreferences
-     *
-     * @param accountName
-     */
-    private void setSelectedAccountName(String accountName) {
-        String accountNameKey = getString(R.string.prefs_account_name);
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        prefs.edit().putString(accountNameKey, accountName).commit();
     }
 
     @Override
@@ -234,6 +126,155 @@ public class MainActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
+    /**
+     * Make this activity react on model changes
+     */
+    private void registerObservers() {
+
+    }
+
+    /**
+     * Setup the navigation Drawer
+     */
+    private void setupNavigationDrawer() {
+        // Drawer initialization
+        mAccountSpinner = (Spinner) findViewById(R.id.account_spinner);
+        mPlanetTitles = getResources().getStringArray(R.array.planets_array);
+        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        mDrawerToggle = new ActionBarDrawerToggle(this,                  /* host Activity */
+                mDrawerLayout,         /* DrawerLayout object */
+                R.drawable.ic_drawer,  /* nav drawer icon to replace 'Up' caret */
+                R.string.drawer_open,  /* "open drawer" description */
+                R.string.drawer_close  /* "close drawer" description */) {
+            /** Called when a drawer has settled in a completely closed state. */
+            public void onDrawerClosed(View view) {
+                getActionBar().setTitle(getString(R.string.app_name));
+            }
+
+            /** Called when a drawer has settled in a completely open state. */
+            public void onDrawerOpened(View drawerView) {
+                getActionBar().setTitle("Drawer opened");
+            }
+        };
+        mDrawerList = (ListView) findViewById(R.id.left_drawer);
+        // Set the adapter for the list view
+        mDrawerList.setAdapter(new ArrayAdapter<String>(this, R.layout.drawer_list_item, mPlanetTitles));
+        // Set the list's click listener
+        mDrawerList.setOnItemClickListener(new DrawerItemClickListener());
+
+        // Set the drawer toggle as the DrawerListener
+        mDrawerLayout.setDrawerListener(mDrawerToggle);
+
+        getActionBar().setDisplayHomeAsUpEnabled(true);
+        getActionBar().setHomeButtonEnabled(true);
+
+        ArrayList<String> scopes = new ArrayList<String>();
+        scopes.add(DriveScopes.DRIVE);
+        mCredential = GoogleAccountCredential.usingOAuth2(this, scopes);
+        String accountName = getSelectedAccountName();
+        if (accountName != null) {
+            mCredential.setSelectedAccountName(accountName);
+        } else {
+            startActivityForResult(mCredential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
+        }
+    }
+
+    /**
+     * Setup the account spinner in the NavigationDrawer
+     */
+    private void populateAccountSpinner() {
+        // Populate account spinner
+        AccountManager accMgr = AccountManager.get(this);
+        Account[] accountList = accMgr.getAccountsByType("com.google");
+        AccountAdapter accountAdapter = new AccountAdapter(this, R.layout.account_spinner_item, R.id.account_name, R.id.account_picture, accountList);
+        mAccountSpinner.setAdapter(accountAdapter);
+        mAccountSpinner.setSelection(accountAdapter.getPosition(mCredential.getSelectedAccount()));
+        mAccountSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                setSelectedAccountName(((Account) parent.getItemAtPosition(position)).name);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+        // TODO Display the account pictures (as in the Drive App)
+        //        ImageView profilePic = (ImageView) findViewById(R.id.profilePic);
+        //        Cursor c = getContentResolver().query(ContactsContract.Profile.CONTENT_URI, null, null, null, null);
+        //        int count = c.getCount();
+        //        String[] columnNames = c.getColumnNames();
+        //        String photoUri = c.getString(c.getColumnIndex("photo_thumb_uri"));
+        //        Log.d(TAG, "Photo URI: " + photoUri);
+        //        boolean b = c.moveToFirst();
+        //        int position = c.getPosition();
+        //        if (count == 1 && position == 0) {
+        //            for (int j = 0; j < columnNames.length; j++) {
+        //                String columnName = columnNames[j];
+        //                String columnValue = c.getString(c.getColumnIndex(columnName));
+        //                Log.d(TAG, "Namme: " + columnName);
+        //                Log.d(TAG, "Value: " + columnValue);
+        ////                ...
+        //                // consume the values here
+        //            }
+        //        }
+        //        c.close();
+    }
+
+    /**
+     * Show the synced keyring in ListView
+     * <p/>
+     * TODO Add observer that repopulated the list after syncing
+     */
+    private void populateKeyringList() {
+        // Populate keyring list
+        String[] PROJECTION = new String[]{KeyringVault.Keyrings._ID, KeyringVault.Keyrings.COLUMN_NAME_TITLE, KeyringVault.Keyrings.COLUMN_NAME_FILENAME, KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, KeyringVault.Keyrings.COLUMN_NAME_FILE_ID, KeyringVault.Keyrings.COLUMN_NAME_DELETED};
+        mKeyringList = (ListView) findViewById(R.id.keyring_list);
+        Uri uri = Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + getSelectedAccountName() + "/keyrings/");
+        Cursor cursor = getContentResolver().query(uri, PROJECTION, KeyringVault.Keyrings.COLUMN_NAME_FILE_ID + " IS NOT NULL", null, null);
+        Log.d(TAG, "Got local files: " + cursor.getCount());
+        keyringList.clear();
+        for (boolean more = cursor.moveToFirst(); more; more = cursor.moveToNext()) {
+            keyringList.add(cursor.getString(2));
+        }
+        ArrayAdapter<String> keyrings = new ArrayAdapter<String>(this, R.layout.keyring_list_item, keyringList);
+        mKeyringList.setAdapter(keyrings);
+        mKeyringList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent intent = new Intent(getApplicationContext(), KeyringActivity.class);
+                intent.putExtra(EXTRA_KEYRING, keyringList.get(position));
+                startActivity(intent);
+            }
+        });
+    }
+
+
+    /**
+     * Retrieve the currently selected account name from SharedPreferences
+     *
+     * @return The currently selected account
+     */
+    private String getSelectedAccountName() {
+        String accountNameKey = getString(R.string.prefs_account_name);
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        return preferences.getString(accountNameKey, null);
+    }
+
+    /**
+     * Set the currently selected account name and save it in SharedPreferences
+     *
+     * @param accountName
+     */
+    private void setSelectedAccountName(String accountName) {
+        String accountNameKey = getString(R.string.prefs_account_name);
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        preferences.edit().putString(accountNameKey, accountName).commit();
+        mCredential.setSelectedAccountName(accountName);
+    }
+
+
+
     @Override
     protected void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
         switch (requestCode) {
@@ -241,11 +282,11 @@ public class MainActivity extends Activity {
                 if (resultCode == RESULT_OK && data != null && data.getExtras() != null) {
                     String accountName = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
                     if (accountName != null) {
-                        credential.setSelectedAccountName(accountName);
+                        mCredential.setSelectedAccountName(accountName);
                         // Store account name in shared preferences
                         setSelectedAccountName(accountName);
                         enableAutoSync();
-                        showToast("Selected account: " + credential.getSelectedAccountName());
+                        showToast("Selected account: " + mCredential.getSelectedAccountName());
                     }
                 }
                 break;
@@ -253,10 +294,15 @@ public class MainActivity extends Activity {
                 if (resultCode == Activity.RESULT_OK) {
                     requestSync();
                 } else {
-                    startActivityForResult(credential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
+                    startActivityForResult(mCredential.newChooseAccountIntent(), REQUEST_ACCOUNT_PICKER);
                 }
                 break;
         }
+    }
+
+    @Override
+    public void update(Observable observable, Object data) {
+
     }
 
     /**
@@ -275,10 +321,10 @@ public class MainActivity extends Activity {
      * @param position The position in the NavigationDrawer ListView
      */
     private void selectItem(int position) {
-        // update the main content by replacing fragments
-        Fragment fragment = new PlanetFragment();
+        // update the main_activity content by replacing fragments
+        Fragment fragment = new SettingsFragment();
         Bundle args = new Bundle();
-        args.putInt(PlanetFragment.ARG_PLANET_NUMBER, position);
+        args.putInt(SettingsFragment.ARG_PLANET_NUMBER, position);
         fragment.setArguments(args);
 
         FragmentManager fragmentManager = getFragmentManager();
@@ -294,21 +340,21 @@ public class MainActivity extends Activity {
      * Enable sync
      */
     private void enableAutoSync() {
-        ContentResolver.setIsSyncable(credential.getSelectedAccount(), AUTHORITY, 1);
-        ContentResolver.setSyncAutomatically(credential.getSelectedAccount(), AUTHORITY, true);
+        ContentResolver.setIsSyncable(mCredential.getSelectedAccount(), AUTHORITY, 1);
+        ContentResolver.setSyncAutomatically(mCredential.getSelectedAccount(), AUTHORITY, true);
     }
 
     /**
      * Request a synchronisation
      */
     private void requestSync() {
-        final GoogleAccountManager accountManager = new GoogleAccountManager(this);
-        Account account = credential.getSelectedAccount();
+        Account account = mCredential.getSelectedAccount();
         if (account != null) {
-//            getContentResolver().notifyChange(rowUri, null, true);
+            //            getContentResolver().notifyChange(rowUri, null, true);
             Bundle options = new Bundle();
             options.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
             ContentResolver.requestSync(account, AUTHORITY, options);
+            populateKeyringList();
         }
     }
 
@@ -324,22 +370,20 @@ public class MainActivity extends Activity {
     /**
      * Fragment that appears in the "content_frame", shows a planet
      */
-    public static class PlanetFragment extends Fragment {
-        public static final String ARG_PLANET_NUMBER = "planet_number";
+    public static class SettingsFragment extends Fragment {
+        public static final String ARG_PLANET_NUMBER = "settings_number";
 
-        public PlanetFragment() {
+        public SettingsFragment() {
             // Empty constructor required for fragment subclasses
         }
 
         @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                                 Bundle savedInstanceState) {
+        public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_settings, container, false);
             int i = getArguments().getInt(ARG_PLANET_NUMBER);
             String planet = getResources().getStringArray(R.array.planets_array)[i];
 
-            int imageId = getResources().getIdentifier(planet.toLowerCase(Locale.getDefault()),
-                    "drawable", getActivity().getPackageName());
+            int imageId = getResources().getIdentifier(planet.toLowerCase(Locale.getDefault()), "drawable", getActivity().getPackageName());
             ((ImageView) rootView.findViewById(R.id.image)).setImageResource(imageId);
             getActivity().setTitle(planet);
             return rootView;

@@ -48,5 +48,13 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity
+                android:name="KeyringActivity"
+                android:label="KeyringActivity"
+                android:theme="@android:style/Theme.Holo.Light.DarkActionBar">
+            <meta-data
+                    android:name="android.support.PARENT_ACTIVITY"
+                    android:value="co.schmitt.android.keyringdroid.MainActivity"/>
+        </activity>
     </application>
 </manifest>

@@ -19,4 +19,5 @@
     <string name="prefs_largest_change">largest_change_</string>
     <string name="prefs_sync_interval">sync_interval_</string>
     <string name="loading">PythonAPK running...</string>
+    <string name="keyring_list_text">History</string>
 </resources>
