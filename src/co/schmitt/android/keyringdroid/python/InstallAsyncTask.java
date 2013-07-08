@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.os.AsyncTask;
-import android.os.Environment;
 import android.util.Log;
 import co.schmitt.android.keyringdroid.R;
 import com.android.python27.BackgroundScriptService;
@@ -20,6 +19,7 @@ public class InstallAsyncTask extends AsyncTask<Void, Integer, Boolean> {
 
     public static final String TAG = "PythonInstallAsyncTask";
 
+    // TODO DO NOT STORE PARENT ACTIVITY !
     private Context mContext;
 
     public InstallAsyncTask(Context context) {
@@ -38,8 +38,9 @@ public class InstallAsyncTask extends AsyncTask<Void, Integer, Boolean> {
         //        sendmsg("showProgressDialog", "");
 
         //        sendmsg("setMessageProgressDialog", "Please wait...");
-        createOurExternalStorageRootDir();
+        //        createOurExternalStorageRootDir();
 
+        createPythonStorageDir();
         // Copy all resources
         copyResourcesToLocal();
 
@@ -87,36 +88,43 @@ public class InstallAsyncTask extends AsyncTask<Void, Integer, Boolean> {
                 content = mContext.getResources().openRawResource(t[i].getInt(a));
                 content.reset();
 
-                // python project
+                // TODO ensure paths are correct
+                // python project (python-keyring-lib)
+                // /data/data/$PKGNAME/python/python-keyring-lib
                 if (sFileName.endsWith(GlobalConstants.PYTHON_PROJECT_ZIP_NAME)) {
-                    succeed &= Utils.unzip(content, mContext.getFilesDir().getAbsolutePath() + "/", true);
+                    succeed &= Utils.unzip(content, getPythonInstallationDir(), true);
                 }
                 // python -> /data/data/com.android.python27/files/python
                 else if (sFileName.endsWith(GlobalConstants.PYTHON_ZIP_NAME)) {
                     succeed &= Utils.unzip(content, mContext.getFilesDir().getAbsolutePath() + "/", true);
-                    FileUtils.chmod(new File(mContext.getFilesDir().getAbsolutePath() + "/python/bin/python"), 0755);
+                    FileUtils.chmod(new File(getPythonInstallationDir() + "bin/python"), 0755);
                 }
                 // python extras -> /sdcard/com.android.python27/extras/python
+                // TODO /data/data/$PKGNAME/python/extras ?
                 else if (sFileName.endsWith(GlobalConstants.PYTHON_EXTRAS_ZIP_NAME)) {
-                    Utils.createDirectoryOnExternalStorage(mContext.getPackageName() + "/" + "extras");
-                    Utils.createDirectoryOnExternalStorage(mContext.getPackageName() + "/" + "extras" + "/" + "tmp");
-                    succeed &= Utils.unzip(content, Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + mContext.getPackageName() + "/extras/", true);
+                    //                    Utils.createDirectoryOnExternalStorage(mContext.getPackageName() + "/" + "extras");
+                    //                    Utils.createDirectoryOnExternalStorage(mContext.getPackageName() + "/" + "extras" + "/" + "tmp");
+                    succeed &= Utils.unzip(content, mContext.getFilesDir().getAbsolutePath() + "/", false);
                 }
-
             } catch (Exception e) {
                 Log.e(TAG, "Failed to copyResourcesToLocal", e);
                 succeed = false;
             }
-        } // end for all files in res/raw
+        }
+        Log.d(TAG, "Installation result " + succeed);
+    }
 
+    private String getPythonInstallationDir() {
+        // /data/data/$PKGNAME/files/python/
+        return mContext.getFilesDir() + java.io.File.separator + "python" + java.io.File.separator;
     }
 
     private void createPythonStorageDir() {
-
+        java.io.File parentFolder = new java.io.File(getPythonInstallationDir());
+        parentFolder.mkdirs();
     }
 
-    private void createOurExternalStorageRootDir() {
-        Utils.createDirectoryOnExternalStorage(mContext.getPackageName());
-    }
-
+    //    private void createOurExternalStorageRootDir() {
+    //        Utils.createDirectoryOnExternalStorage(mContext.getPackageName());
+    //    }
 }

@@ -89,7 +89,7 @@ public class MainActivity extends Activity implements Observer {
             setContentView(R.layout.install);
             new InstallAsyncTask(this).execute();
         } else {
-            runScriptService();
+            //            runScriptService();
         }
     }
 

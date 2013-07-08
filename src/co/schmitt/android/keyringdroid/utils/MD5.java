@@ -1,4 +1,4 @@
-package co.schmitt.android.keyringdroid;
+package co.schmitt.android.keyringdroid.utils;
 
 // Source: https://github.com/CyanogenMod/android_packages_apps_CMUpdater/blob/jellybean/src/com/cyanogenmod/updater/utils/MD5.java
 

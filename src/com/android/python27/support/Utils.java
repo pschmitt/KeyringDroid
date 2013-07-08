@@ -60,10 +60,10 @@ public class Utils {
                 String zipEntryName = zipEntry.getName();
 
 
-//		       if(!zipEntry.isDirectory()) {
-//		 	       File fil = new File(dest + zipEntryName);
-//		 	       fil.getParent()
-//		       }
+                //		       if(!zipEntry.isDirectory()) {
+                //		 	       File fil = new File(dest + zipEntryName);
+                //		 	       fil.getParent()
+                //		       }
 
                 // file exists ? delete ?
                 File file2 = new File(dest + zipEntryName);
@@ -179,7 +179,5 @@ public class Utils {
         } catch (Exception e) {
             Log.e(TAG, "createDirectoryOnExternalStorage error: " + e);
         }
-
     }
-
 }
