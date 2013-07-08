@@ -9,7 +9,6 @@ import android.content.Context;
 import android.content.SyncResult;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import co.schmitt.android.keyringdroid.DriveSyncer;
 import co.schmitt.android.keyringdroid.R;
 
 /**

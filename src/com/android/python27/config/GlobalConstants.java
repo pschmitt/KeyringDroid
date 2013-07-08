@@ -25,7 +25,7 @@ package com.android.python27.config;
 public class GlobalConstants {
 
     public static final String PYTHON_MAIN_SCRIPT_NAME = "hello.py";
-    public static final String PYTHON_PROJECT_ZIP_NAME = "my_python_project.zip";
+    public static final String PYTHON_PROJECT_ZIP_NAME = "python-keyring-lib.zip";
     public static final String PYTHON_ZIP_NAME = "python_27.zip";
     public static final String PYTHON_EXTRAS_ZIP_NAME = "python_extras_27.zip";
 

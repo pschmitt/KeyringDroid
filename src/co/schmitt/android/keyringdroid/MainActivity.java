@@ -180,6 +180,37 @@ public class MainActivity extends Activity implements Observer {
     }
 
     /**
+     * The click listner for ListView in the navigation drawer - calls selectedItem
+     */
+    private class DrawerItemClickListener implements ListView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            selectItem(position);
+        }
+    }
+
+    /**
+     * Get called when a settings item in NavigationDrawer is selected
+     *
+     * @param position The position in the NavigationDrawer ListView
+     */
+    private void selectItem(int position) {
+        // update the main_activity content by replacing fragments
+        Fragment fragment = new SettingsFragment();
+        Bundle args = new Bundle();
+        args.putInt(SettingsFragment.ARG_SETTING_NUMBER, position);
+        fragment.setArguments(args);
+
+        FragmentManager fragmentManager = getFragmentManager();
+        fragmentManager.beginTransaction().replace(R.id.content_frame, fragment).commit();
+
+        // update selected item and title, then close the drawer
+        mDrawerList.setItemChecked(position, true);
+        setTitle(mPlanetTitles[position]);
+        mDrawerLayout.closeDrawer(mDrawerList);
+    }
+
+    /**
      * Setup the account spinner in the NavigationDrawer
      */
     private void populateAccountSpinner() {
@@ -230,7 +261,7 @@ public class MainActivity extends Activity implements Observer {
         // Populate keyring list
         String[] PROJECTION = new String[]{KeyringVault.Keyrings._ID, KeyringVault.Keyrings.COLUMN_NAME_TITLE, KeyringVault.Keyrings.COLUMN_NAME_FILENAME, KeyringVault.Keyrings.COLUMN_NAME_MODIFICATION_DATE, KeyringVault.Keyrings.COLUMN_NAME_FILE_ID, KeyringVault.Keyrings.COLUMN_NAME_DELETED};
         mKeyringList = (ListView) findViewById(R.id.keyring_list);
-        Uri uri = Uri.parse("content://co.schmitt.android.provider.KeyringDroid/" + getSelectedAccountName() + "/keyrings/");
+        Uri uri = KeyringUri.getKeyringsUri(getSelectedAccountName());
         Cursor cursor = getContentResolver().query(uri, PROJECTION, KeyringVault.Keyrings.COLUMN_NAME_FILE_ID + " IS NOT NULL", null, null);
         Log.d(TAG, "Got local files: " + cursor.getCount());
         keyringList.clear();
@@ -239,14 +270,16 @@ public class MainActivity extends Activity implements Observer {
         }
         ArrayAdapter<String> keyrings = new ArrayAdapter<String>(this, R.layout.keyring_list_item, keyringList);
         mKeyringList.setAdapter(keyrings);
-        mKeyringList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent intent = new Intent(getApplicationContext(), KeyringActivity.class);
-                intent.putExtra(EXTRA_KEYRING, keyringList.get(position));
-                startActivity(intent);
-            }
-        });
+        mKeyringList.setOnItemClickListener(new KeyringItemClickListener());
+    }
+
+    private class KeyringItemClickListener implements ListView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            Intent intent = new Intent(getApplicationContext(), KeyringActivity.class);
+            intent.putExtra(EXTRA_KEYRING, keyringList.get(position));
+            startActivity(intent);
+        }
     }
 
 
@@ -272,8 +305,6 @@ public class MainActivity extends Activity implements Observer {
         preferences.edit().putString(accountNameKey, accountName).commit();
         mCredential.setSelectedAccountName(accountName);
     }
-
-
 
     @Override
     protected void onActivityResult(final int requestCode, final int resultCode, final Intent data) {
@@ -303,37 +334,6 @@ public class MainActivity extends Activity implements Observer {
     @Override
     public void update(Observable observable, Object data) {
 
-    }
-
-    /**
-     * The click listner for ListView in the navigation drawer - calls selectedItem
-     */
-    private class DrawerItemClickListener implements ListView.OnItemClickListener {
-        @Override
-        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            selectItem(position);
-        }
-    }
-
-    /**
-     * Get called when a settings item in NavigationDrawer is selected
-     *
-     * @param position The position in the NavigationDrawer ListView
-     */
-    private void selectItem(int position) {
-        // update the main_activity content by replacing fragments
-        Fragment fragment = new SettingsFragment();
-        Bundle args = new Bundle();
-        args.putInt(SettingsFragment.ARG_PLANET_NUMBER, position);
-        fragment.setArguments(args);
-
-        FragmentManager fragmentManager = getFragmentManager();
-        fragmentManager.beginTransaction().replace(R.id.content_frame, fragment).commit();
-
-        // update selected item and title, then close the drawer
-        mDrawerList.setItemChecked(position, true);
-        setTitle(mPlanetTitles[position]);
-        mDrawerLayout.closeDrawer(mDrawerList);
     }
 
     /**
@@ -371,7 +371,7 @@ public class MainActivity extends Activity implements Observer {
      * Fragment that appears in the "content_frame", shows a planet
      */
     public static class SettingsFragment extends Fragment {
-        public static final String ARG_PLANET_NUMBER = "settings_number";
+        public static final String ARG_SETTING_NUMBER = "settings_number";
 
         public SettingsFragment() {
             // Empty constructor required for fragment subclasses
@@ -380,7 +380,7 @@ public class MainActivity extends Activity implements Observer {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_settings, container, false);
-            int i = getArguments().getInt(ARG_PLANET_NUMBER);
+            int i = getArguments().getInt(ARG_SETTING_NUMBER);
             String planet = getResources().getStringArray(R.array.planets_array)[i];
 
             int imageId = getResources().getIdentifier(planet.toLowerCase(Locale.getDefault()), "drawable", getActivity().getPackageName());
